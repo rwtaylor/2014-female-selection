@@ -1,0 +1,733 @@
+<!--pandoc
+t: html
+default-image-extension: png
+template: templates/html.template
+toc-depth: 4
+toc:
+
+t: latex
+s:
+S:
+latex-engine: xelatex
+template: templates/latex.template
+default-image-extension: pdf
+toc-depth: 4
+toc:
+-->
+
+```{r echo=FALSE, cache=FALSE, results="hide"}
+opts_chunk$set(cache=TRUE, fig.cap='', dev=c('png', 'pdf'), fig.width=6,
+  fig.height=4)
+opts_knit$set('upload.fun' = function(x) sub("\\.[[:alnum:]]*$", "", x) )
+opts_chunk$set(cache.path="cache/04/")
+```
+# Temporal Selection Gradients
+
+```{r t_g_data, cache=FALSE}
+library(pander)
+set.alignment('right', row.names = 'left')
+library(dplyr)
+library(ggplot2)
+library(grid)
+
+# Load Data
+load("data/analysis_steps/fit_raneff_data.RData")
+fit_raneff_data$Year <- as.character(fit_raneff_data$Year)
+```
+
+##Does 'Year' significantly improve models of selection?
+The significance of interaction terms between Year and the behavioral traits on fitness.
+
+```{r Test_Year}
+# GLMMs to test whether selection fluctuates across years.
+library(lme4)
+# Models with interactions between year and the behavioral traits
+fit_raneff_data_blup <- filter(fit_raneff_data, type == "blup")
+
+fit_raneff_data_blup %>%
+  group_by(Grid, Year, add = FALSE) %>%
+  summarise(n(), var(ars_all))
+# grid_years with no variation in fitness need to be removed
+fit_raneff_data_blup <- filter(fit_raneff_data_blup,
+  !(grid_year %in% c("KL2003", "SU2008")))
+
+# Need to also remove Grid Years with very low sample sizes.
+fit_raneff_data_blup %>%
+  group_by(Grid, Year, add = FALSE) %>%
+  summarise(n(), var(ars_all))
+fit_raneff_data_blup <- filter(fit_raneff_data_blup,
+  !(grid_year %in% c("KL2004")))
+
+fit_raneff_data_blup$oID <- 1:nrow(fit_raneff_data_blup)
+fit_raneff_data_blup <- droplevels(fit_raneff_data_blup)
+ars_year <- glmer(ars_all ~ Year + Grid + activity_s + activity_s:Year +
+  aggression_s + aggression_s:Year + docility_s + docility_s:Year +
+  (1|ID) + (1|oID), data = fit_raneff_data_blup, family = poisson, 
+  control=glmerControl(optimizer="bobyqa"))
+  
+save(ars_year, file = "data/analysis_steps/ars_year.RData")
+```
+
+```{r Temporal, results='asis'}
+load("data/analysis_steps/ars_year.RData")
+# Test fit of models. Does the addition of year:traits improve the fit?
+library(car)
+library(lme4)
+aod <- Anova(ars_year, type = 2)
+aod <- data.frame(aod)
+aod$Chisq <- round(aod$Chisq ,digits = 2)
+
+# Function to convert small p-values into 'P < X'
+p.format <- function(x){ 
+	out <- signif(x, digits = 2)
+  out[x < 0.005]  <- "< 0.005"
+	out[x < 0.001]  <- "< 0.001"
+	out[x < 0.0001] <- "< 0.0001"
+	return(out)
+}
+# Format p values
+aod[ ,3] <- p.format(aod[ ,3])
+row.names(aod) <- c("Year", "Grid", "Activity", "Aggression", "Docility",
+  "Year x Activity", "Year x Aggression", "Year x Docility")
+pandoc.table(aod, caption = 
+  "The effect of year on selection for female behavioral traits through annual
+reproductive success. Significance was calculated with Wald chisq tests from
+a type II analysis of deviance. GLMMs were fitted with identity as a random
+effect and assumed a Poisson error distribution.")
+```
+
+## Accounting for random effect uncertainty
+### Calculate selection gradients
+Calculate selection coefficients for each of the 1000 samples of the posterior distribution of random effects.
+
+```{r sel_grad_mcmc_post}
+# Function to get posterior distribution of selection gradients
+seCoefMCMC <- function(x){
+  mod <- lm(rel_ars ~ aggression_sgy + activity_sgy + docility_sgy, data = x)
+  res <- as.list(coef(mod)[-1])
+  res$Year <- x$Year[1]
+  res$itt <- x$itt[1]
+  return(data.frame(res, stringsAsFactors = FALSE))
+}
+
+start_time <- Sys.time()
+sel_grads_mcmc_post <- fit_raneff_data %>%
+  filter(type == "raneff") %>%
+  group_by(itt, Year, add = FALSE) %>%
+  do(seCoefMCMC(.))
+print(paste("Approx. run time: ", format(Sys.time() - start_time)))
+
+sel_grads_mcmc_post <- tbl_df(sel_grads_mcmc_post)
+
+save(sel_grads_mcmc_post,
+  file = "data/analysis_steps/sel_grads_mcmc_post.RData")
+```
+
+```{r get_creds}
+load("data/analysis_steps/sel_grads_mcmc_post.RData")
+
+library(MCMCglmm)
+getCred <- function(x, sig = 0.05){
+  require(MCMCglmm)
+  mcmc_data <- x %>%
+    ungroup() %>%
+    select(aggression_sgy, activity_sgy, docility_sgy) %>%
+    mcmc(.)
+  pm  <- posterior.mode(mcmc_data)
+  int <- HPDinterval(mcmc_data, prob = 1 - sig)
+  prb <- 2*(rowSums(sign(t(mcmc_data)) != sign(pm)) / 1000)
+  tbl_df(data.frame(
+    Year      = x$Year[1],
+    variable  = c("Aggression", "Activity", "Docility"),
+    post_mode = pm,
+    lower     = int[ ,"lower"],
+    upper     = int[ ,"upper"],
+    prb = prb,
+    stringsAsFactors = FALSE
+    ))
+}
+
+getCred(sel_grads_mcmc_post %>% filter(Year == "2004"))
+
+sel_grads_mcmc <- sel_grads_mcmc_post %>%
+  group_by(Year, add = FALSE) %>%
+  do(getCred(x = ., sig = 0.05))
+
+sel_grads_mcmc$upper_sig_star <- ""
+sel_grads_mcmc$lower_sig_star <- ""
+sel_grads_mcmc$upper_sig_star[sel_grads_mcmc$post_mode > 0 &
+  sel_grads_mcmc$lower > 0] <- "*"
+sel_grads_mcmc$lower_sig_star[sel_grads_mcmc$post_mode < 0 &
+  sel_grads_mcmc$upper < 0] <- "*"
+
+save(sel_grads_mcmc, sel_grads_mcmc_post, getCred,
+  file = "data/analysis_steps/sel_grads_mcmc.RData")
+```
+
+```{r format_sel_grads_mcmc, results='asis'}
+load("data/analysis_steps/sel_grads_mcmc.RData")
+# Format for table
+sgt <- sel_grads_mcmc
+sgt$sig_star <- ""
+sgt$sig_star[sel_grads_mcmc$post_mode > 0 & sel_grads_mcmc$lower > 0] <- "*"
+sgt$sig_star[sel_grads_mcmc$post_mode < 0 & sel_grads_mcmc$upper < 0] <- "*"
+sgt$post_mode <- format(round(sgt$post_mode, digits = 2), digits = 1,
+  nsmall = 2)
+sgt$lower     <- format(round(sgt$lower,     digits = 2), digits = 1,
+  nsmall = 2)
+sgt$upper     <- format(round(sgt$upper,     digits = 2), digits = 1,
+  nsmall = 2)
+sgt$prb       <- format(round(sgt$prb,       digits = 2), digits = 1,
+  nsmall = 2)
+sgt$coef      <- paste(sgt$post_mode, " (", sgt$lower, " to ", sgt$upper,")",
+  sgt$sig_star, sep = '')
+
+sgt_agg <- filter(sgt, variable == "Aggression")
+sgt_act <- filter(sgt, variable == "Activity")
+sgt_doc <- filter(sgt, variable == "Docility")
+N <- fit_raneff_data %>%
+  filter(type == "blup") %>%
+  group_by(Year, add = FALSE) %>%
+  summarise(n())
+
+pandoc.table(
+  data.frame(Year = N$Year, N = N[ ,2], Aggression = sgt_agg$coef,
+    Acitivity = sgt_act$coef, Docility = sgt_doc$coef
+  ),
+  caption = "Selection Gradients (accounting for behavioural uncertainty)."
+  )
+```
+
+### Plots
+```{r sel_grads_mcmc_plot}
+load("data/analysis_steps/sel_grads_mcmc_post.RData")
+library(ggplot2)
+library(dplyr)
+
+sel_grads_mcmc <- sel_grads_mcmc_post %>%
+  group_by(Year, add = FALSE) %>% do(getCred(x = ., sig = 0.05))
+
+sel_grads_mcmc$upper_sig_star <- ""
+sel_grads_mcmc$lower_sig_star <- ""
+sel_grads_mcmc$upper_sig_star[sel_grads_mcmc$post_mode > 0 &
+  sel_grads_mcmc$lower > 0] <- "*"
+sel_grads_mcmc$lower_sig_star[sel_grads_mcmc$post_mode < 0 &
+  sel_grads_mcmc$upper < 0] <- "*"
+
+p <- ggplot(data = sel_grads_mcmc,
+  aes(x = Year, y = post_mode, group = variable)
+)
+p <- p + geom_hline(yintercept = 0, size = 0.25) # Line at y = 0
+p <- p + geom_errorbar(aes(ymax = upper, ymin = lower),
+  position = position_dodge(width = 0.5), width = 0.4, size = 0.4)
+# Houle data percentiles
+p <- p + geom_hline(yintercept = c(0.2975, -0.2975), linetype = 2, size = 0.4)
+p <- p + geom_point(aes(shape = variable, fill = variable),
+  position = position_dodge(width = 0.5), size = 3)
+p <- p + scale_shape_manual(name = "B", values = c(24, 21, 22))
+p <- p + scale_fill_manual(name = "B", values = c("white", "black", "white"))
+p <- p + scale_color_manual(name = "B", values = c("black", "black", "black"))
+p <- p + xlab("Year") 
+p <- p + ylab("Posterior Mode ± 0.95 Credible Interval")
+p <- p + theme_bw(base_size = 10)
+p <- p + theme(legend.position = c(0.92, 0.86),
+  legend.background = element_blank(), legend.key.size = unit(0.4, "cm"))
+p <- p + theme(legend.title = element_text(family = "Helvetica",
+                                 face = "plain", size = 18))
+p <- p + theme(legend.key = element_blank())
+p <- p + theme(strip.background = element_blank())
+p <- p + theme(panel.grid.minor = element_blank(),
+  panel.grid.major = element_blank())
+p <- p + theme(panel.border = element_blank())
+p <- p + theme(axis.line = element_line(color = "black"))
+p <- p + geom_text(aes(x = Year, y = upper, group = variable,
+  label = upper_sig_star), vjust = -0.3,
+  position = position_dodge(width = 0.5), size = 5)
+p <- p + geom_text(aes(x = Year, y = lower, group = variable,
+  label = lower_sig_star), vjust = 1.3,
+  position = position_dodge(width = 0.5), size = 5)
+p_sel_grad_MCMC <- p + ylim(c(-1.1,1.4))
+
+pdf(file = "figure/sel_grads_mcmc_plot.pdf", width = 4.33, height = 3)
+p_sel_grad_MCMC
+dev.off()
+p_sel_grad_MCMC
+```
+
+
+### Correlations
+
+```{r sg_cors_mcmc, fig.width=5, fig.height=5}
+sel_grads_mcmc_flat <- data.frame(
+  Aggression = filter(sel_grads_mcmc, variable == "Aggression")$post_mode,
+  Agg_upper  = filter(sel_grads_mcmc, variable == "Aggression")$upper,
+  Agg_lower  = filter(sel_grads_mcmc, variable == "Aggression")$lower,
+  Activity   = filter(sel_grads_mcmc, variable == "Activity")$post_mode,
+  Act_upper  = filter(sel_grads_mcmc, variable == "Activity")$upper,
+  Act_lower  = filter(sel_grads_mcmc, variable == "Activity")$lower,
+  Docility   = filter(sel_grads_mcmc, variable == "Docility")$post_mode,
+  Doc_upper  = filter(sel_grads_mcmc, variable == "Docility")$upper,
+  Doc_lower  = filter(sel_grads_mcmc, variable == "Docility")$lower
+)
+
+cor.behav <- function(x, y){
+  ct <- cor.test(x, y)
+  out <- data.frame(est = ct$estimate, lower = ct$conf.int[1],
+    upper = ct$conf.int[2], stringsAsFactors = FALSE)
+  out <- round(out, digits = 2)
+  out$print <- paste(out$est, " (", out$lower, ", ", out$upper, ")", sep = "")
+}
+
+cor_agg_act <- cor.behav(sel_grads_mcmc_flat$Aggression, 
+  sel_grads_mcmc_flat$Activity)
+cor_agg_doc <- cor.behav(sel_grads_mcmc_flat$Aggression, 
+  sel_grads_mcmc_flat$Docility)
+cor_doc_act <- cor.behav(sel_grads_mcmc_flat$Docility, 
+  sel_grads_mcmc_flat$Activity)
+```
+
+#### Aggression and Activity
+
+```{r agg_act_mcmc, fig.height=2.03, fig.width=2.17}
+p <- ggplot(data = sel_grads_mcmc_flat, aes(x = Activity, y = Aggression))
+p <- p + geom_point()
+p <- p + ylab("Aggression")
+p <- p + xlab("Activity")
+p <- p + theme_bw(base_size = 10)
+p <- p + theme(panel.grid.major = element_blank(),
+  panel.grid.minor = element_blank(), panel.background = element_blank(),
+  strip.background = element_blank(), strip.text = element_blank(),
+  panel.border = element_rect(linetype = "solid", colour = "black"))
+p <- p + geom_errorbarh(aes(xmin = Act_lower, xmax = Act_upper),
+  height = 0.07, size = 0.2)
+p <- p + geom_errorbar(aes(ymin = Agg_lower, ymax = Agg_upper),
+  width = 0.07, size = 0.2)
+p <- p + ylim(c(-1, 1.2))
+p <- p + annotate(geom = "text", size = 3, x = 0.25, y = 1.2,
+  label = paste("r = ", cor_agg_act, sep = ''))
+p + theme(plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm"))
+```
+
+#### Aggression and Docility
+
+```{r agg_doc_mcmc, fig.height=2.03, fig.width=2.17}
+p <- ggplot(data = sel_grads_mcmc_flat, aes(y = Aggression, x = Docility))
+p <- p + geom_point()
+p <- p + ylab("Aggression")
+p <- p + xlab("Docility")
+p <- p + theme_bw(base_size = 10)
+p <- p + theme(panel.grid.major = element_blank(),
+  panel.grid.minor = element_blank(), panel.background = element_blank(),
+  strip.background = element_blank(), strip.text = element_blank(),
+  panel.border = element_rect(linetype = "solid", colour = "black"))
+p <- p + geom_errorbarh(aes(xmin = Doc_lower, xmax = Doc_upper),
+  height = 0.07, size = 0.2)
+p <- p + geom_errorbar(aes(ymin = Agg_lower, ymax = Agg_upper),
+  width = 0.03, size = 0.2)
+p <- p + ylim(c(-1, 1.2))
+p <- p + annotate(geom = "text", size = 3, x = -0.025, y = 1.2,
+  label = paste("r = ", cor_agg_doc, sep = ''))
+p <- p + theme(plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm"))
+p + scale_x_continuous(limits = c(-0.6, 0.55),
+  breaks = c(-0.5, -0.25, 0, 0.25, 0.5))
+```
+
+#### Activity and Docility
+
+```{r act_doc_mcmc, fig.height=2.03, fig.width=2.17}
+p <- ggplot(data = sel_grads_mcmc_flat, aes(x = Activity, y = Docility))
+p <- p + geom_point()
+p <- p + xlab("Activity")
+p <- p + ylab("Docility")
+p <- p + theme_bw(base_size = 10)
+p <- p + theme(panel.grid.major = element_blank(),
+  panel.grid.minor = element_blank(), panel.background = element_blank(),
+  strip.background = element_blank(), strip.text = element_blank(),
+  panel.border = element_rect(linetype = "solid", colour = "black"))
+p <- p + geom_errorbar(aes(ymin = Doc_lower, ymax = Doc_upper),
+  width = 0.07, size = 0.2)
+p <- p + geom_errorbarh(aes(xmin = Act_lower, xmax = Act_upper),
+  height = 0.03, size = 0.2)
+p <- p + ylim(c(-0.6,0.55))
+p <- p + xlim(c(-1.1, 1.35))
+p <- p + annotate(geom = "text", size = 3, x = 0, y = 0.55,
+  label = paste("r = ", cor_doc_act, sep = ''))
+p + theme(plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm"))
+```
+
+### Summary Stats
+
+```{r summary_stats, results='asis'}
+library(dplyr)
+sign_change <- function(x){
+  # sign changes calculated as the number of changes in direction between successive years relative to n−1
+  s <- sign(x)
+  sum(s[1:(length(s)-1)] != s[-1])/(length(s)-1)
+}
+se <- function(lower, upper){
+  (upper - lower) / 3.92
+}
+
+sum_stats_mcmc <- sel_grads_mcmc %>%
+group_by(variable, add = FALSE) %>%
+summarise(
+  mean_abs_b = mean(abs(post_mode)),
+  abs_mean_b = abs(mean(post_mode)),
+  sd_b = sd(post_mode),
+  mean_se_b = mean(se(lower, upper)),
+  freq_sign = sign_change(post_mode),
+  mean_cv = mean(se(lower, upper) / abs(post_mode))
+  )
+sum_stats_mcmc[ ,2:6] <- round(sum_stats_mcmc[ ,2:6], 2)
+pandoc.table(sum_stats_mcmc)
+```
+
+## Ignoring random effect uncertainty
+Calculate selection gradients from BLUPs, estimate SE using jackknifing.
+
+### Calculate selection gradients
+
+```{r seCoeff}
+seCoeffLmer <- function(x){
+  model <- lm(rel_ars ~ aggression_sgy + activity_sgy + docility_sgy, data = x)
+  coefs <- coef(model)[-1] ## Coefficients, but drop intercept
+  N <- nrow(x)
+  pseudo <- data.frame(matrix(NA, N, 3))
+  for(i in 1:N){ ## Calculate pseudovalues
+  	pseudo[i, ] <- N * coefs - (N - 1) * coef(update(model,
+      data = x, subset = -i))[-1]
+  }
+  t_0.05 <- qt(0.975, N - 1) * sqrt(diag(var(pseudo)) / N)
+  t_0.10 <- qt(0.950, N - 1) * sqrt(diag(var(pseudo)) / N)
+  out <- data.frame(
+    Year = as.numeric(as.character(x$Year[1:3])),
+    variable = c("Aggression", "Activity", "Docility"),
+    coefficients = coefs,
+    variances = diag(var(pseudo)) / N,
+    std.errors = sqrt(diag(var(pseudo)) / N),
+    CI_0.05    = t_0.05,
+    CI_0.10    = t_0.10,
+    upper = coefs + t_0.05,
+    lower = coefs - t_0.05,
+    upper_1 = coefs + t_0.10,
+    lower_1 = coefs - t_0.10,
+    significant_0.05 = ( abs(coefs) - t_0.05 ) > 0,
+    significant_0.10 = ( abs(coefs) - t_0.10 ) > 0
+    )
+    return(out)
+}
+
+sel_grads_blup <- fit_raneff_data %>%
+  filter(type == "blup") %>%
+  group_by(Year, add = FALSE) %>%
+  do(seCoeffLmer(.))
+sel_grads_blup$variable <- as.character(sel_grads_blup$variable)
+sel_grads_blup$Year <- as.character(sel_grads_blup$Year)
+sel_grads_blup <- tbl_df(sel_grads_blup)
+save(sel_grads_blup, file = "data/analysis_steps/sel_grads_blup.RData")
+```
+
+```{r format_sel_grads_blup, results='asis'}
+load("data/analysis_steps/sel_grads_blup.RData")
+# Format for table
+sgt <- sel_grads_blup
+sgt$sig_star <- ""
+sgt$sig_star[sel_grads_mcmc$coefficients > 0 & sel_grads_mcmc$lower > 0] <- "*"
+sgt$sig_star[sel_grads_mcmc$coefficients < 0 & sel_grads_mcmc$upper < 0] <- "*"
+sgt$coefficients <- format(round(sgt$coefficients, digits = 2),
+  digits = 1, nsmall = 2)
+sgt$lower <- format(round(sgt$lower, digits = 2),
+  digits = 1, nsmall = 2)
+sgt$upper <- format(round(sgt$upper, digits = 2),
+  digits = 1, nsmall = 2)
+sgt$prb <- NA
+sgt$coef <- paste(sgt$coefficients,
+  " (", sgt$lower, " to ", sgt$upper,")", sgt$sig_star, sep = '')
+
+sgt_agg <- filter(sgt, variable == "Aggression")
+sgt_act <- filter(sgt, variable == "Activity")
+sgt_doc <- filter(sgt, variable == "Docility")
+N <- fit_raneff_data %>%
+  filter(type == "blup") %>%
+  group_by(Year, add = FALSE) %>%
+  summarise(n = n(), t_kprod = sum(kprod), t_ars = sum(ars_all))
+
+pandoc.table(
+  data.frame(
+    Year = N$Year,
+    Aggression = sgt_agg$coef,
+    Activity = sgt_act$coef,
+    Docility = sgt_doc$coef
+  ),
+  caption ="Traditional selection gradients (ignoring behavioural uncertainty)."
+)
+```
+
+### Plot
+**Female Linear Selection Gradients ARS**  
+Linear selection gradients ± 95% credible intervals for female behavioral traits on annual reproductive success.
+
+```{r sel_grads_blup_plot, fig.width=6, fig.height=4}
+load("data/analysis_steps/sel_grads_blup.RData")
+sel_grads_blup$post_mode <- sel_grads_blup$coefficients
+sel_grads_blup$upper_sig_star <- ""
+sel_grads_blup$lower_sig_star <- ""
+sel_grads_blup$upper_sig_star[sel_grads_blup$coefficients > 0 & 
+  sel_grads_blup$lower > 0] <- "*"
+sel_grads_blup$lower_sig_star[sel_grads_blup$coefficients < 0 &
+  sel_grads_blup$upper < 0] <- "*"
+sel_grads_blup$upper_sig_01_star <- ""
+sel_grads_blup$lower_sig_01_star <- ""
+sel_grads_blup$upper_sig_01_star[sel_grads_blup$coefficients > 0
+  & sel_grads_blup$lower_1 > 0] <- "."
+sel_grads_blup$lower_sig_01_star[sel_grads_blup$coefficients < 0
+  & sel_grads_blup$upper_1 < 0] <- "."
+sel_grads_blup$upper_sig_01_star[sel_grads_blup$coefficients > 0
+  & sel_grads_blup$lower > 0] <- ""
+sel_grads_blup$lower_sig_01_star[sel_grads_blup$coefficients < 0
+  & sel_grads_blup$upper < 0] <- ""
+
+pdf(file = "figure/sel_grads_blup_plot.pdf", width = 4.33, height = 3)
+p <- p_sel_grad_MCMC %+% sel_grads_blup
+p <- p + ylab("Coefficient ± 0.95 Confidence Interval")
+p <- p + geom_text(aes(x = Year, y = upper, group = variable,
+  label = upper_sig_01_star), vjust = -0.3,
+  position = position_dodge(width = 0.5), size = 7)
+p <- p + geom_text(aes(x = Year, y = lower, group = variable,
+  label = lower_sig_01_star), vjust =  0.5,
+  position = position_dodge(width = 0.5), size = 7)
+p <- p + geom_text(aes(x = Year, y = upper, group = variable,
+  label = upper_sig_star), vjust = -0.3,
+  position = position_dodge(width = 0.5), size = 5)
+p <- p + geom_text(aes(x = Year, y = lower, group = variable,
+  label = lower_sig_star), vjust =  1.3,
+  position = position_dodge(width = 0.5), size = 5)
+p <- p + ylim(c(-2, 2))
+p <- p + scale_shape_manual(name = "A", values = c(24, 21, 22))
+p <- p + scale_fill_manual(name = "A", values = c("white", "black", "white"))
+p <- p + scale_color_manual(name = "A", values = c("black", "black", "black"))
+p
+dev.off()
+p
+```
+
+### Correlations
+```{r sg_cors_blup, fig.width=5, fig.height=5}
+load("data/analysis_steps/sel_grads_blup.RData")
+sel_grads_blup_flat <- data.frame(
+  Aggression = filter(sel_grads_blup, variable == "Aggression")$coefficients,
+  Agg_upper  = filter(sel_grads_blup, variable == "Aggression")$upper,
+  Agg_lower  = filter(sel_grads_blup, variable == "Aggression")$lower,
+  Activity   = filter(sel_grads_blup, variable == "Activity")$coefficients,
+  Act_upper  = filter(sel_grads_blup, variable == "Activity")$upper,
+  Act_lower  = filter(sel_grads_blup, variable == "Activity")$lower,
+  Docility   = filter(sel_grads_blup, variable == "Docility")$coefficients,
+  Doc_upper  = filter(sel_grads_blup, variable == "Docility")$upper,
+  Doc_lower  = filter(sel_grads_blup, variable == "Docility")$lower
+)
+
+cor.behav <- function(x, y){
+  ct <- cor.test(x, y)
+  out <- data.frame(est = ct$estimate, lower = ct$conf.int[1],
+    upper = ct$conf.int[2], stringsAsFactors = FALSE)
+  out <- round(out, digits = 2)
+  out$print <- paste(out$est, " (", out$lower, ", ", out$upper, ")", sep = "")
+}
+
+cor_blup_agg_act <- cor.behav(sel_grads_blup_flat$Aggression,
+  sel_grads_blup_flat$Activity)
+cor_blup_agg_doc <- cor.behav(sel_grads_blup_flat$Aggression,
+  sel_grads_blup_flat$Docility)
+cor_blup_doc_act <- cor.behav(sel_grads_blup_flat$Docility,
+  sel_grads_blup_flat$Activity)
+```
+
+#### Aggression and Activity
+```{r agg_act_blup, fig.height=2.03, fig.width=2.17}
+p <- ggplot(data = sel_grads_blup_flat, aes(x = Activity, y = Aggression))
+p <- p + geom_point()
+p <- p + ylab("Aggression")
+p <- p + xlab("Activity")
+p <- p + theme_bw(base_size = 10)
+p <- p + theme(panel.grid.major = element_blank(),
+  panel.grid.minor = element_blank(), panel.background = element_blank(),
+  strip.background = element_blank(), strip.text = element_blank(),
+  panel.border = element_rect(linetype = "solid", colour = "black"))
+p <- p + geom_errorbarh(aes(xmin = Act_lower, xmax = Act_upper),
+  height = 0.07, size = 0.2)
+p <- p + geom_errorbar(aes(ymin = Agg_lower, ymax = Agg_upper),
+  width = 0.07, size = 0.2)
+p <- p + xlim(c(-1.8,2))
+p <- p + ylim(c(-1.4, 1.6))
+p <- p + annotate(geom = "text", size = 2.5, x = 0.25, y = 1.6,
+  label = paste("r = ", cor_blup_agg_act, sep = ''))
+p + theme(plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm"))
+```
+
+#### Aggression and Docility
+```{r agg_doc_blup, fig.height=2.03, fig.width=2.17}
+p <- ggplot(data = sel_grads_blup_flat, aes(y = Aggression, x = Docility))
+p <- p + geom_point()
+p <- p + ylab("Aggression")
+p <- p + xlab("Docility")
+p <- p + theme_bw(base_size = 10)
+p <- p + theme(panel.grid.major = element_blank(),
+  panel.grid.minor = element_blank(), panel.background = element_blank(),
+  strip.background = element_blank(), strip.text = element_blank(),
+  panel.border = element_rect(linetype = "solid", colour = "black"))
+p <- p + geom_errorbarh(aes(xmin = Doc_lower, xmax = Doc_upper),
+  height = 0.07, size = 0.2)
+p <- p + geom_errorbar(aes(ymin = Agg_lower, ymax = Agg_upper),
+  width = 0.03, size = 0.2)
+p <- p + xlim(c(-1.1,1))
+p <- p + ylim(c(-1.4, 1.6))
+p <- p + annotate(geom = "text", size = 2.5, x = 0.2, y = 1.6,
+  label = paste("r = ", cor_blup_agg_doc, sep = ''))
+p + theme(plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm"))
+```
+
+#### Activity and Docility
+```{r act_doc_blup, fig.height=2.03, fig.width=2.17}
+p <- ggplot(data = sel_grads_blup_flat, aes(x = Activity, y = Docility))
+p <- p + geom_point()
+p <- p + xlab("Activity")
+p <- p + ylab("Docility")
+p <- p + theme_bw(base_size = 10)
+p <- p + theme(panel.grid.major = element_blank(),
+  panel.grid.minor = element_blank(), panel.background = element_blank(),
+  strip.background = element_blank(), strip.text = element_blank(),
+  panel.border = element_rect(linetype = "solid", colour = "black"))
+p <- p + geom_errorbar(aes(ymin = Doc_lower, ymax = Doc_upper),
+  width = 0.07, size = 0.2)
+p <- p + geom_errorbarh(aes(xmin = Act_lower, xmax = Act_upper),
+  height = 0.03, size = 0.2)
+p <- p + scale_y_continuous(limits = c(-1.1, 1), breaks = c(-1, 0, 1))
+p <- p + xlim(c(-1.8, 2))
+p <- p + annotate(geom = "text", size = 2.5, x = 0, y = 1,
+  label = paste("r = ", cor_blup_doc_act, sep = ''))
+p + theme(plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm"))
+```
+
+### Summary Statistics
+```{r summary_blup, results='asis'}
+sum_stats_blup <- sel_grads_blup %>%
+group_by(variable, add = FALSE) %>%
+summarise(
+  mean_abs_b = mean(abs(coefficients)),
+  abs_mean_b = abs(mean(coefficients)),
+  sd_b = sd(coefficients),
+  mean_se_b = mean(se(lower, upper)),
+  freq_sign = sign_change(coefficients),
+  mean_cv = mean(se(lower, upper) / abs(coefficients))
+  )
+sum_stats_blup[ ,2:6] <- round(sum_stats_blup[ ,2:6], 2)
+pandoc.table(sum_stats_blup)
+```
+
+## Compare Analytical Frameworks
+
+### Table
+```{r compare, results='asis'}
+load("data/analysis_steps/sel_grads_blup.RData")
+load("data/analysis_steps/sel_grads_mcmc.RData")
+compare_grads <- left_join(select(sel_grads_blup, Year, variable,
+  blup_coef = coefficients, blup_upper = upper, blup_lower = lower),
+  select(sel_grads_mcmc, Year, variable, mcmc_pm = post_mode,
+    mcmc_upper = upper, mcmc_lower = lower), by = c("variable", "Year"))
+
+ct_print <- function(x,y){
+  ct <- cor.test(x,y)
+  est <- format(ct$estimate, digits = 2)
+  ci <- format(ct$conf.int, digits = 2)
+  ct <- format(ct, digits = 2)
+  paste(est, " (", ci[1], ", ", ci[2] ,")", sep = '')  
+}
+
+c_table <- compare_grads %>%
+  group_by(variable) %>%
+  summarise(cor = cor(blup_coef, mcmc_pm),
+    abs_diff = mean((abs(blup_coef - mcmc_pm))),
+    mean_mcmc = mean(abs(mcmc_pm)), mean_blup = mean(abs(blup_coef)),
+    prop_diff = mean_blup / mean_mcmc, cor_test = ct_print(blup_coef, mcmc_pm),
+    lmerGreater = sum(abs(blup_coef) > abs(mcmc_pm))
+  )
+pandoc.table(c_table)
+```
+
+### Aggression plot
+```{r compare_agg, fig.height=2.3, fig.width=2.17}
+p <- ggplot(filter(compare_grads, variable == "Aggression"),
+  aes(x = blup_coef, y = mcmc_pm))
+p <- p + geom_point()
+p <- p + geom_errorbarh(aes(xmin = blup_lower, xmax = blup_upper),
+  height = 0.04, size = 0.2)
+p <- p + geom_errorbar(aes(ymin = mcmc_lower, ymax = mcmc_upper),
+  width = 0.07, size = 0.2)
+p <- p + theme_bw(base_size = 10)
+p <- p + theme(plot.title = element_text(size = 10),
+  panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+  panel.background = element_blank(), strip.background = element_blank(),
+  strip.text = element_blank(),
+  panel.border = element_rect(linetype = "solid", colour = "black"))
+p <- p + annotate(geom = "text", size = 2.5, x = 0, y = 1.5,
+  label = paste("r = ", filter(c_table, variable == "Aggression") %>%
+  select(cor_test), sep = ''))
+p <- p + ylab("Posterior Modes")
+p <- p + xlab("Selection Gradients")
+p <- p + xlim(c(-1.4, 1.5))
+p <- p + ylim(c(-1.4, 1.5))
+p <- p + ggtitle("Aggression")
+p + theme(plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm"))
+```
+
+### Activity Plot
+```{r compare_act, fig.height=2.3, fig.width=2.17}
+p <- ggplot(filter(compare_grads, variable == "Activity"),
+  aes(x = blup_coef, y = mcmc_pm))
+p <- p + geom_point()
+p <- p + geom_errorbarh(aes(xmin = blup_lower, xmax = blup_upper),
+  height = 0.04, size = 0.2)
+p <- p + geom_errorbar(aes(ymin = mcmc_lower, ymax = mcmc_upper),
+  width = 0.07, size = 0.2)
+p <- p + theme_bw(base_size = 10)
+p <- p + theme(plot.title = element_text(size = 10),
+  panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+  panel.background = element_blank(), strip.background = element_blank(),
+  strip.text = element_blank(),
+  panel.border = element_rect(linetype = "solid", colour = "black"))
+p <- p + annotate(geom = "text", size = 2.5, x = 0, y = 2,
+  label = paste("r = ", filter(c_table, variable == "Activity") %>%
+  select(cor_test), sep = ''))
+p <- p + ylab("Posterior Modes")
+p <- p + xlab("Selection Gradients")
+p <- p + xlim(c(-1.8,2))
+p <- p + ylim(c(-1.8,2))
+p <- p + ggtitle("Activity")
+p + theme(plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm"))
+```
+
+### Docility Plot
+```{r compare_doc, fig.height=2.3, fig.width=2.17}
+p <- ggplot(filter(compare_grads, variable == "Docility"),
+  aes(x = blup_coef, y = mcmc_pm))
+p <- p + geom_point()
+p <- p + geom_errorbarh(aes(xmin = blup_lower, xmax = blup_upper),
+  height = 0.04, size = 0.2)
+p <- p + geom_errorbar(aes(ymin = mcmc_lower, ymax = mcmc_upper),
+  width = 0.07, size = 0.2)
+p <- p + theme_bw(base_size = 10)
+p <- p + theme(plot.title = element_text(size = 10),
+  panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+  panel.background = element_blank(), strip.background = element_blank(),
+  strip.text = element_blank(),
+  panel.border = element_rect(linetype = "solid", colour = "black"))
+p <- p + ylab("Posterior Modes")
+p <- p + xlab("Selection Gradients")
+p <- p + xlim(c(-1.1,0.9)) 
+p <- p + scale_y_continuous(limits = c(-1.1, 1), breaks = c(-1, 0, 1))
+p <- p + annotate(geom = "text", size = 2.5, x = 0, y = 1,
+  label = paste("r = ", filter(c_table, variable == "Docility") %>%
+  select(cor_test), sep = ''))
+p <- p + ggtitle("Docility")
+p + theme(plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm"))
+```

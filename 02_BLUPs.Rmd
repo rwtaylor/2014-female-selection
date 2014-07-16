@@ -1,0 +1,658 @@
+<!--pandoc
+t: html
+default-image-extension: png
+template: templates/html.template
+toc-depth: 4
+toc:
+
+t: latex
+s:
+S:
+latex-engine: xelatex
+template: templates/latex.template
+default-image-extension: pdf
+toc-depth: 4
+toc:
+-->
+
+```{r echo=FALSE, cache=FALSE, results="hide"}
+opts_chunk$set(cache=TRUE, fig.cap='', dev=c('png', 'pdf'), fig.width=6,
+  fig.height=4)
+opts_knit$set('upload.fun' = function(x) sub("\\.[[:alnum:]]*$", "", x) ) 
+opts_chunk$set(cache.path="cache/02/")
+```
+# Random Effects, BLUPs & Repeatability
+
+```{r load_data2}
+library(pander)
+set.alignment('right', row.names = 'left')
+library(dplyr)
+library(MCMCglmm)
+load("data/analysis_steps/pca.RData")
+
+doc_data <- pca_data %>% filter(!is.na(docil))
+agg_data <- pca_data %>% filter(!is.na(misPC1))
+act_data <- pca_data %>% filter(!is.na(ofPC1))
+
+thin <- 500
+burnin <- thin * 100
+nitt <- burnin + thin * 1000
+```
+
+## Docility
+Models with covariates for the behavioral tests as fixed effects and ID as a random effect. Covariates include the julian day of the test (continuous), the observer who administered the test (factor) and the handling event number for the year (continuous). We will save 1000 samples from the posterior distribution.
+
+Setting pr = TRUE in MCMCglmm saves the posterior distribution of random effects.
+
+```{r docility_blup}
+prior <- list(
+  G = list(G1 = list(V = var(doc_data$docil, na.rm = TRUE), nu = 1.002)), 
+  R = list(V = var(doc_data$docil, na.rm = TRUE), nu = 0.002)
+  )
+
+time_start <- Sys.time()
+doc_mcmc_model <- MCMCglmm(docil ~ julian + Obs + handlevent_year +
+                            I(handlevent_year^2),
+                     random = ~ ID,
+                     prior = prior,
+                     pr = TRUE,
+                     data = doc_data,
+                     thin = thin,
+                     burnin = burnin,
+                     nitt = nitt,
+                     verbose = FALSE
+                     )
+print(paste("Approx. model run time: ", format(Sys.time() - time_start)))
+save(doc_mcmc_model, file = "data/analysis_steps/doc_mcmc_model.RData")
+```
+
+### Docility Repeatability
+Repeatability is the ratio of the between individual variance to the total variance of the trait (within and between individual variance).
+
+```{r docility_repeatability, results='asis'}
+load("data/analysis_steps/doc_mcmc_model.RData")
+
+PM_HPD <- function(x){
+  # Get the posterior mode and HPD interval for a posterior distribution
+  out <- posterior.mode(x)
+  out[2:3] <- HPDinterval(x)
+  return(out)
+}
+
+format_PM_HPD <- function(x){
+  fx <- format(x, digits = 2, nsmall = 2)
+  out <- fx[[1]]
+  out[2] <- paste("(", fx[2], " – ", fx[3], ")", sep = '')
+  return(out)
+}
+
+doc_I_var <- PM_HPD(doc_mcmc_model$VCV[ ,"ID"])
+doc_P_var <- PM_HPD(mcmc(rowSums(doc_mcmc_model$VCV)))
+doc_rep <- doc_I_var / doc_P_var
+
+dIv <- format_PM_HPD(doc_I_var)
+dPv <- format_PM_HPD(doc_P_var)
+dRv <- format_PM_HPD(doc_rep)
+
+doc_table <- data.frame(
+   Parameter  = c("ID Variance", "Phen. Variance", "Repeatability"),
+  "Post Mode" = c(dIv[1], dPv[1], dRv[1]),
+  "Cred Int." = c(dIv[2], dPv[2], dRv[2])
+  )
+
+pandoc.table(doc_table, caption = "Docility repeatability using all trials")
+```
+
+### Docility Repeatability Across Years
+
+The above model treats repeated measures within a year the same as repeated measures across years (both exist in the dataset). Next we will subset the data to include only across year repeated measures.
+
+
+```{r docility_across}
+load("data/analysis_steps/doc_mcmc_model.RData")
+# Split the dataset into within and across year sets
+# We will select one random trial for each squirrel from each year
+## Now split into groups of ID & Year and sample one trial at random
+
+doc_data_across <- doc_data %>%
+  group_by(ID, Year) %>%
+  dplyr:::sample_n.grouped_df(1)
+
+# Run model again
+prior <- list(
+  G = list(G1 = list(V = var(doc_data_across$docil, na.rm = TRUE), nu = 1.002)),
+  R = list(V = var(doc_data_across$docil, na.rm = TRUE), nu = 1.002)
+)
+
+time_start <- Sys.time()
+doc_mcmc_model_across <- MCMCglmm(docil ~ julian + Obs + handlevent_year + 
+                                    I(handlevent_year^2),
+                            random = ~ ID,
+                            prior = prior,
+                            pr = TRUE,
+                            data = doc_data_across,
+                            thin = thin,
+                            burnin = burnin,
+                            nitt = nitt,
+                            verbose = FALSE
+                            )
+print(paste("Approx. model run time: ", format(Sys.time() - time_start)))
+save(doc_mcmc_model_across,
+  file = "data/analysis_steps/doc_mcmc_model_across.RData")
+```
+
+```{r doc_across_table, results='asis'}
+load("data/analysis_steps/doc_mcmc_model_across.RData")
+
+doc_I_var_across <- PM_HPD(doc_mcmc_model_across$VCV[ ,"ID"])
+doc_P_var_across <- PM_HPD(mcmc(rowSums(doc_mcmc_model_across$VCV)))
+doc_rep_across   <- doc_I_var_across / doc_P_var_across
+
+dIv_a <- format_PM_HPD(doc_I_var_across)
+dPv_a <- format_PM_HPD(doc_P_var_across)
+dRv_a <- format_PM_HPD(doc_rep_across)
+
+doc_ay_table <- data.frame(check.names = FALSE,
+   Parameter  = c("ID Variance", "Phen. Variance", "Repeatability"),
+  "Post Mode" = c(dIv_a[1], dPv_a[1], dRv_a[1]),
+  "Cred Int." = c(dIv_a[2], dPv_a[2], dRv_a[2])
+  )
+
+pandoc.table(doc_ay_table, caption = "Docility repeatability across years")
+```
+
+Ok, the repeatability across years is a little lower than when within year repeated measures are inlcuded. Might be interesing to see what repeatability is within years only.
+
+### Docility Repeatabiltiy Within Years
+```{r docility_within}
+# Now pick 1 year for each squirrel, prioritizing years with most measures
+pick_year <- function(x){
+  if(length(unique(x$Year)) > 1) {
+    table_years <- table(x$Year)
+    max_years <- which(table_years == max(table_years))
+    year <- as.integer(sample(names(max_years), 1))
+    x[x$Year == year, ]
+    }else{x}
+}
+
+doc_data_within <- doc_data %>%
+  group_by(ID) %>%
+  do(pick_year(.))
+
+# Run model again
+prior <- list(
+  G = list(G1 = list(V = var(doc_data_within$doc, na.rm = TRUE), nu = 1.002)), 
+  R = list(V = var(doc_data_within$doc, na.rm = TRUE), nu = 1.002))
+
+time_start <- Sys.time()
+doc_mcmc_model_within <- MCMCglmm(docil ~ julian + Obs + handlevent_year + 
+                                   I(handlevent_year^2),
+                          random = ~ ID,
+                          prior = prior,
+                          pr = TRUE,
+                          data = doc_data_within,
+                          thin = thin,
+                          burnin = burnin,
+                          nitt = nitt,
+                          verbose = FALSE
+                          )
+print(paste("Approx. model run time: ", format(Sys.time() - time_start)))
+save(doc_mcmc_model_within,
+  file = "data/analysis_steps/doc_mcmc_model_within.RData")
+```
+
+```{r doc_within.table, results='asis'}
+load("data/analysis_steps/doc_mcmc_model_within.RData")
+
+doc_I_var_within <- PM_HPD(doc_mcmc_model_within$VCV[ ,"ID"])
+doc_P_var_within <- PM_HPD(mcmc(rowSums(doc_mcmc_model_within$VCV)))
+doc_rep_within   <- doc_I_var_within / doc_P_var_within
+
+dIv_w <- format_PM_HPD(doc_I_var_within)
+dPv_w <- format_PM_HPD(doc_P_var_within)
+dRv_w <- format_PM_HPD(doc_rep_within)
+
+doc_wy_table <- data.frame(check.names = FALSE,
+  Parameter = c("ID Variance", "Phen. Variance", "Repeatability"),
+  "Post Mode" = c(dIv_w[1], dPv_w[1], dRv_w[1]),
+  "Cred Int." = c(dIv_w[2], dPv_w[2], dRv_w[2])
+  )
+
+pandoc.table(doc_wy_table, caption = "Docility repeatability within years", 
+  justify = 'right')
+
+```
+
+
+## Aggression
+Aggression is the first principal component of the mirror image stimluation test.
+
+```{r aggression_blups}
+prior <- list(
+  G = list(G1 = list(V = var(agg_data$misPC1, na.rm = TRUE), nu = 1.002)),
+  R = list(V = var(agg_data$misPC1, na.rm = TRUE), nu = 1.002))
+
+time_start <- Sys.time()
+agg_mcmc_model <- MCMCglmm(misPC1 ~ julian + trial_life + I(trial_life^2),
+                    random = ~ ID,
+                    prior = prior,
+                    pr = TRUE,
+                    data = agg_data,
+                    thin = thin,
+                    burnin = burnin,
+                    nitt = nitt,
+                    verbose = FALSE
+                    )
+print(paste("Approx. model run time: ", format(Sys.time() - time_start)))
+print(summary(agg_mcmc_model))
+save(agg_mcmc_model, file = "data/analysis_steps/agg_mcmc_model.RData")
+```
+
+### Aggression Repeatability
+```{r aggression_repeatability, results='asis'}
+load("data/analysis_steps/agg_mcmc_model.RData")
+agg_I_var <- PM_HPD(agg_mcmc_model$VCV[ ,"ID"])
+agg_P_var <- PM_HPD(mcmc(rowSums(agg_mcmc_model$VCV)))
+agg_rep <- agg_I_var / agg_P_var
+
+agIv <- format_PM_HPD(agg_I_var)
+agPv <- format_PM_HPD(agg_P_var)
+agRv <- format_PM_HPD(agg_rep)
+
+agg_table <- data.frame(
+  Parameter = c("ID Variance", "Phen. Variance", "Repeatability"),
+  "Post Mode" = c(agIv[1], agPv[1], agRv[1]),
+  "Cred Int." = c(agIv[2], agPv[2], agRv[2])
+  )
+
+pandoc.table(agg_table, caption = "Aggression repeatability using all trials", 
+  justify = 'right')
+```
+
+### Aggression Repeatability Across Years
+
+```{r aggression_across}
+agg_data_across <- agg_data %>%
+  group_by(ID, Year) %>%
+  dplyr:::sample_n.grouped_df(1)
+
+prior <- list(
+  G = list(
+    G1 = list(V = var(agg_data_across$misPC1, na.rm = TRUE), nu = 1.002)),
+  R = list(V = var(agg_data_across$misPC1, na.rm = TRUE), nu = 1.002))
+
+time_start <- Sys.time()
+agg_mcmc_model_across <- MCMCglmm(misPC1 ~ julian + trial_life +
+                                   I(trial_life^2),
+                           random = ~ ID,
+                           prior = prior,
+                           pr = TRUE,
+                           data = agg_data_across,
+                           thin = thin,
+                           burnin = burnin,
+                           nitt = nitt,
+                           verbose = FALSE
+                           )
+print(paste("Approx. model run time: ", format(Sys.time() - time_start)))
+save(agg_mcmc_model_across,
+  file = "data/analysis_steps/agg_mcmc_model_across.RData")
+```
+
+```{r agg_across_table, results='asis'}
+load("data/analysis_steps/agg_mcmc_model_across.RData")
+
+agg_I_var_across <- PM_HPD(agg_mcmc_model_across$VCV[ ,"ID"])
+agg_P_var_across <- PM_HPD(mcmc(rowSums(agg_mcmc_model_across$VCV)))
+agg_rep_across   <- agg_I_var_across / agg_P_var_across
+
+agIv_a <- format_PM_HPD(agg_I_var_across)
+agPv_a <- format_PM_HPD(agg_P_var_across)
+agRv_a <- format_PM_HPD(agg_rep_across)
+
+agg_ay_table <- data.frame(
+  Parameter = c("ID Variance", "Phen. Variance", "Repeatability"),
+  "Post Mode" = c(agIv_a[1], agPv_a[1], agRv_a[1]),
+  "Cred Int." = c(agIv_a[2], agPv_a[2], agRv_a[2])
+  )
+
+pandoc.table(agg_ay_table, caption = "Aggression repeatability across years", 
+  justify = 'right')
+```
+
+### Aggression Repeatabiltiy Within Years
+```{r aggression_within}
+agg_data_within <- agg_data %>%
+  group_by(ID) %>%
+  do(pick_year(.))
+
+prior <- list(
+  G = list(
+    G1 = list(V = var(agg_data_within$misPC1, na.rm = TRUE), nu = 1.002)),
+  R = list(V = var(agg_data_within$misPC1, na.rm = TRUE), nu = 1.002)
+  )
+
+time_start <- Sys.time()
+agg_mcmc_model_within <- MCMCglmm(misPC1 ~ julian + trial_life +
+                                    I(trial_life^2),
+                           random = ~ ID,
+                           prior = prior,
+                           pr = TRUE,
+                           data = agg_data_within,
+                           thin = thin,
+                           burnin = burnin,
+                           nitt = nitt,
+                           verbose = FALSE
+                           )
+print(paste("Approx. model run time: ", format(Sys.time() - time_start)))
+save(agg_mcmc_model_within,
+  file = "data/analysis_steps/agg_mcmc_model_within.RData")
+```
+
+```{r agg_within.table, results='asis'}
+load("data/analysis_steps/agg_mcmc_model_within.RData")
+
+agg_I_var_within <- PM_HPD(agg_mcmc_model_within$VCV[ ,"ID"])
+agg_P_var_within <- PM_HPD(mcmc(rowSums(agg_mcmc_model_within$VCV)))
+agg_rep_within   <- agg_I_var_within / agg_P_var_within
+
+agIv_w <- format_PM_HPD(agg_I_var_within)
+agPv_w <- format_PM_HPD(agg_P_var_within)
+agRv_w <- format_PM_HPD(agg_rep_within)
+
+agg_wy_table <- data.frame(
+  Parameter = c("ID Variance", "Phen. Variance", "Repeatability"),
+  "Post Mode" = c(agIv_w[1], agPv_w[1], agRv_w[1]),
+  "Cred Int." = c(agIv_w[2], agPv_w[2], agRv_w[2])
+  )
+
+pandoc.table(agg_wy_table, caption = "Aggression repeatability within years")
+
+```
+
+## Activity
+Activity is the first principal component of the open field test.
+
+```{r activity_blups}
+prior <- list(
+  G = list(G1 = list(V = var(act_data$ofPC1, na.rm = TRUE), nu = 1.002)),
+  R = list(V = var(act_data$ofPC1, na.rm = TRUE), nu = 1.002)
+  )
+
+time_start <- Sys.time()
+act_mcmc_model <- MCMCglmm(ofPC1 ~ julian + trial_life + I(trial_life^2),
+                    random = ~ ID,
+                    prior = prior,
+                    pr = TRUE,
+                    data = act_data,
+                    thin = thin,
+                    burnin = burnin,
+                    nitt = nitt,
+                    verbose = FALSE
+                    )
+print(paste("Approx. model run time: ", format(Sys.time() - time_start)))
+print(summary(act_mcmc_model))
+save(act_mcmc_model, file = "data/analysis_steps/act_mcmc_model.RData")
+```
+
+### Activity Repeatability
+```{r activity_repeatability, results='asis'}
+load("data/analysis_steps/act_mcmc_model.RData")
+act_I_var <- PM_HPD(act_mcmc_model$VCV[ ,"ID"])
+act_P_var <- PM_HPD(mcmc(rowSums(act_mcmc_model$VCV)))
+act_rep <- act_I_var / act_P_var
+
+acIv <- format_PM_HPD(act_I_var)
+acPv <- format_PM_HPD(act_P_var)
+acRv <- format_PM_HPD(act_rep)
+
+act_table <- data.frame(
+  Parameter = c("ID Variance", "Phen. Variance", "Repeatability"),
+  "Post Mode" = c(acIv[1], acPv[1], acRv[1]),
+  "Cred Int." = c(acIv[2], acPv[2], acRv[2])
+  )
+
+pandoc.table(act_table, caption = "Activity repeatability using all trials")
+```
+
+### Activity Repeatability Across Years
+
+```{r activity_across}
+act_data_across <- act_data %>%
+  group_by(ID, Year) %>%
+  dplyr:::sample_n.grouped_df(1)
+
+prior <- list(
+  G = list(G1 = list(V = var(act_data_across$ofPC1, na.rm = TRUE), nu = 1.002)),
+  R = list(V = var(act_data_across$ofPC1, na.rm = TRUE), nu = 1.002))
+
+time_start <- Sys.time()
+act_mcmc_model_across <- MCMCglmm(ofPC1 ~ julian + trial_life +
+                                   I(trial_life^2),
+                           random = ~ ID,
+                           prior = prior,
+                           pr = TRUE,
+                           data = act_data_across,
+                           thin = thin,
+                           burnin = burnin,
+                           nitt = nitt,
+                           verbose = FALSE
+                           )
+print(paste("Approx. model run time: ", format(Sys.time() - time_start)))
+save(act_mcmc_model_across,
+  file = "data/analysis_steps/act_mcmc_model_across.RData")
+```
+
+```{r act_across_table, results='asis'}
+load("data/analysis_steps/act_mcmc_model_across.RData")
+
+act_I_var_across <- PM_HPD(act_mcmc_model_across$VCV[ ,"ID"])
+act_P_var_across <- PM_HPD(mcmc(rowSums(act_mcmc_model_across$VCV)))
+act_rep_across   <- act_I_var_across / act_P_var_across
+
+acIv_a <- format_PM_HPD(act_I_var_across)
+acPv_a <- format_PM_HPD(act_P_var_across)
+acRv_a <- format_PM_HPD(act_rep_across)
+
+act_ay_table <- data.frame(
+  Parameter = c("ID Variance", "Phen. Variance", "Repeatability"),
+  "Post Mode" = c(acIv_a[1], acPv_a[1], acRv_a[1]),
+  "Cred Int." = c(acIv_a[2], acPv_a[2], acRv_a[2])
+  )
+
+pandoc.table(act_ay_table, caption = "Activity repeatability across years")
+```
+
+### Activity Repeatabiltiy Within Years
+```{r activity_within}
+act_data_within <- act_data %>%
+  group_by(ID) %>%
+  do(pick_year(.))
+
+prior <- list(
+  G = list(G1 = list(V = var(act_data_within$ofPC1, na.rm = TRUE), nu = 1.002)), 
+  R = list(V = var(act_data_within$ofPC1, na.rm = TRUE), nu = 1.002)
+  )
+
+time_start <- Sys.time()
+act_mcmc_model_within <- MCMCglmm(ofPC1 ~ julian + trial_life +
+                                   I(trial_life^2),
+                           random = ~ ID,
+                           prior = prior,
+                           pr = TRUE,
+                           data = act_data_within,
+                           thin = thin,
+                           burnin = burnin,
+                           nitt = nitt,
+                           verbose = FALSE
+                           )
+print(paste("Approx. model run time: ", format(Sys.time() - time_start)))
+save(act_mcmc_model_within,
+  file = "data/analysis_steps/act_mcmc_model_within.RData")
+```
+
+```{r act_within.table, results='asis'}
+load("data/analysis_steps/act_mcmc_model_within.RData")
+
+act_I_var_within <- PM_HPD(act_mcmc_model_within$VCV[ ,"ID"])
+act_P_var_within <- PM_HPD(mcmc(rowSums(act_mcmc_model_within$VCV)))
+act_rep_within   <- act_I_var_within / act_P_var_within
+
+acIv_w <- format_PM_HPD(act_I_var_within)
+acPv_w <- format_PM_HPD(act_P_var_within)
+acRv_w <- format_PM_HPD(act_rep_within)
+
+act_wy_table <- data.frame(
+  Parameter = c("ID Variance", "Phen. Variance", "Repeatability"),
+  "Post Mode" = c(acIv_w[1], acPv_w[1], acRv_w[1]),
+  "Cred Int." = c(acIv_w[2], acPv_w[2], acRv_w[2])
+  )
+
+pandoc.table(act_wy_table, caption = "Activity repeatability within years")
+```
+
+## Repeatability Summary
+```{r rep.summary, results='asis'}
+d <- function(x){paste(x[1], x[2])}
+table_summary <- data.frame(
+  Behaviour = c("Aggression", "Activity", "Docility"),
+  All    = c(d(agRv), d(acRv), d(dRv)),
+  Across = c(d(agRv_a), d(acRv_a), d(dRv_a)),
+  Within = c(d(agRv_w), d(acRv_w), d(dRv_w))
+  )
+
+pandoc.table(table_summary, caption = "Summary of repeatabilities")
+```
+
+## Run lmer models
+```{r }
+library(lme4)
+```
+### Docility
+```{r lmer_doc}
+doc_data <- pca_data %>% filter(!is.na(docil))
+doc_lmer_model <- lmer(docil ~ as.factor(Year) + julian + Obs +
+  handlevent_year + I(handlevent_year^2) + (1 | ID), data = doc_data)
+save(doc_lmer_model, file = "data/analysis_steps/doc_lmer_model.RData")
+```
+### Aggression
+```{r lmer_agg}
+agg_data <- pca_data %>% filter(!is.na(misPC1))
+agg_lmer_model <- lmer(misPC1 ~  as.factor(Year) + julian + trial_life +
+  I(trial_life^2) + (1 | ID), data = agg_data)
+save(agg_lmer_model, file = "data/analysis_steps/agg_lmer_model.RData")
+```
+### Activity
+```{r lmer_act}
+act_data <- pca_data %>% filter(!is.na(ofPC1))
+act_lmer_model <- lmer(ofPC1 ~  as.factor(Year) + julian + trial_life +
+  I(trial_life^2) + (1 | ID), data = act_data)
+save(act_lmer_model, file = "data/analysis_steps/act_lmer_model.RData")
+```
+## Extract random effects / BLUPs
+### from MCMCglmm models
+```{r extract_mcmc}
+
+extractMCMCglmmRanEffs <- function(x, trait_name){
+  library(dplyr)
+  library(MCMCglmm)  
+  # Now get the posterior distribution, so we can pass variance in behavioral 
+  # estimate on to further analyses. 1000 sets of random effects saved.
+  sols <- data.frame(x$Sol) ## Get random effects
+  sols <- sols[ ,grep("ID", names(sols))] ## Get all the ID columns
+  sols <- stack(sols)
+  names(sols) <- c(trait_name, "ID")
+  sols$itt <- 1:1000 # Just an index for each set of random effects (e.g. each 
+                     # MCMC sample)
+  sols$ID <- gsub("ID\\.", "", sols$ID)
+  sols$type <- "raneff"
+  tbl_df(sols)
+}
+
+load("data/analysis_steps/doc_mcmc_model.RData")
+doc_mcmc_raneffs <- extractMCMCglmmRanEffs(doc_mcmc_model,
+  trait_name = "docility")
+
+load("data/analysis_steps/agg_mcmc_model.RData")
+agg_mcmc_raneffs <- extractMCMCglmmRanEffs(agg_mcmc_model,
+  trait_name = "aggression")
+
+load("data/analysis_steps/act_mcmc_model.RData")
+act_mcmc_raneffs <- extractMCMCglmmRanEffs(act_mcmc_model,
+  trait_name = "activity")
+
+# No dplyr outer join?
+mcmc_raneffs <- merge(doc_mcmc_raneffs, agg_mcmc_raneffs,
+  by = c("ID", "itt", "type"), all = TRUE)
+mcmc_raneffs <- merge(mcmc_raneffs, act_mcmc_raneffs,
+  by = c("ID", "itt", "type"), all = TRUE)
+
+mcmc_raneffs <- tbl_df(mcmc_raneffs)
+
+save(mcmc_raneffs, file = "data/analysis_steps/MCMCraneffs.RData")
+```
+
+### from lmer models
+```{r extract_lmer}
+load("data/analysis_steps/doc_lmer_model.RData")
+load("data/analysis_steps/agg_lmer_model.RData")
+load("data/analysis_steps/act_lmer_model.RData")
+
+extractLmerBLUPs <- function(x, value){
+  require(dplyr)
+  require(lme4)
+  blups <- ranef(x)$ID
+  blups$ID <- rownames(blups)
+  names(blups) <- c(value, "ID")
+  blups$itt <- 0  ## NOTE itt == 0 is BLUPs
+  blups$type <- "blup"
+  tbl_df(blups)
+}
+
+doc_lmer_model.blups <- extractLmerBLUPs(doc_lmer_model, "docility")
+agg_lmer_model.blups <- extractLmerBLUPs(agg_lmer_model, "aggression")
+act_lmer_model.blups <- extractLmerBLUPs(act_lmer_model, "activity")
+
+# No outer join for dplyr?
+lmer_blups <- merge(doc_lmer_model.blups, agg_lmer_model.blups, all = TRUE)
+lmer_blups <- merge(lmer_blups, act_lmer_model.blups, all = TRUE)
+lmer_blups <- tbl_df(lmer_blups)
+save(lmer_blups, file = "data/analysis_steps/lmer_blups.RData")
+```
+
+
+### rbind MCMC raneffs and BLUPs
+```{r rbind_mcmc_blups}
+load("data/analysis_steps/MCMCraneffs.RData")
+load("data/analysis_steps/lmer_blups.RData")
+raneffs_blups <- rbind(mcmc_raneffs, lmer_blups)
+
+save(raneffs_blups, file = "data/analysis_steps/raneffs_blups.RData")
+``` 
+
+## Model Diagnostics
+### Docility
+```{r docility_diagnostics, fig.cap=''}
+load("data/analysis_steps/doc_mcmc_model.RData")
+autocorr.diag(doc_mcmc_model$VCV)
+geweke.diag(doc_mcmc_model$VCV)
+heidel.diag(doc_mcmc_model$VCV)
+plot(doc_mcmc_model$VCV)
+```
+
+### Aggression
+```{r aggression_diagnostics, fig.cap=''}
+load("data/analysis_steps/agg_mcmc_model.RData")
+autocorr.diag(agg_mcmc_model$VCV)
+geweke.diag(agg_mcmc_model$VCV)
+heidel.diag(agg_mcmc_model$VCV)
+plot(agg_mcmc_model$VCV)
+```
+
+### Activity
+```{r activity_diagnostics, fig.cap=''}
+load("data/analysis_steps/act_mcmc_model.RData")
+autocorr.diag(act_mcmc_model$VCV)
+geweke.diag(act_mcmc_model$VCV)
+heidel.diag(act_mcmc_model$VCV)
+plot(act_mcmc_model$VCV)
+```

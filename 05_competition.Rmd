@@ -1,0 +1,724 @@
+<!--pandoc
+t: html
+default-image-extension: png
+template: templates/html.template
+toc-depth: 4
+toc:
+
+t: latex
+s:
+S:
+latex-engine: xelatex
+template: templates/latex.template
+default-image-extension: pdf
+toc-depth: 4
+toc:
+-->
+
+# Competition and Selection
+```{r echo=FALSE, cache=FALSE, results="hide"}
+opts_chunk$set(cache=TRUE, fig.cap='', dev=c('png', 'pdf'), fig.width=6,
+  fig.height=4)
+opts_knit$set('upload.fun' = function(x) sub("\\.[[:alnum:]]*$", "", x) )
+opts_chunk$set(cache.path="cache/05/")
+```
+
+## Accounting for behavioral measurement uncertainty
+
+```{r comp_data}
+library(ggplot2)
+library(grid)
+library(dplyr)
+library(pander)
+set.alignment('right', row.names = 'left')
+load("data/analysis_steps/sel_grads_mcmc.RData")
+fitness <- read.table(file = "data/fitness+competition.csv", sep = ',',
+  header = TRUE, stringsAsFactors = FALSE)
+load("data/analysis_steps/fit_raneff_data.RData")
+```
+
+We will examine the effect of competition on selection in two general steps.
+
+  1. Is there an interaction between competition and behavior on fitness?
+  2. Are there nonlinear effects of behavior on fitness?
+
+
+### Correlations between selection gradients and competition
+First a plot of the relationship between selection gradients and competition. The two study areas were pooled to calculate selection gradients for each year. Therefore we need to calculate competition for the combined study areas. Competition is the number of offspring produced during the year divided by the number of offspring that survived to spring (i.e. recruited into the population).
+
+```{r mean_comp}
+competition_year <- fitness %>%
+  filter(grid_year != "SU2008") %>%
+  select(Year, competition) %>%
+  unique() %>%
+  group_by(Year, add = FALSE) %>%
+  summarise(mean_competition = mean(competition))
+  
+n_year <- filter(fit_raneff_data, type == "blup") %>%
+  group_by(Year, add = FALSE) %>% summarise(n = n())
+competition_year <- left_join(competition_year, n_year, by = "Year")
+competition_year$Year <- as.character(competition_year$Year)
+
+load("data/analysis_steps/sel_grads_mcmc.RData")
+sel_grads_mcmc_comp <- left_join(sel_grads_mcmc, competition_year,
+  by = "Year")
+save(sel_grads_mcmc_comp, competition_year,
+  file = "data/analysis_steps/sel_grads_mcmc_comp.RData")
+```
+
+```{r calc_correlations}
+load("data/analysis_steps/sel_grads_mcmc_comp.RData")
+
+cor_sgrad_comp <- function(x){
+  v <- x$variable[1]
+  ct <- cor.test(x$post_mode, x$mean_competition)
+  data.frame(variable = v, est = ct$estimate, lower = ct$conf.int[1],
+    upper = ct$conf.int[2], stringsAsFactors = FALSE)
+}
+
+mcmc_cor <- sel_grads_mcmc_comp %>%
+  group_by(variable, add = FALSE) %>%
+  do(cor_sgrad_comp(.))
+mcmc_cor[ ,2:4] <- round(mcmc_cor[ ,2:4], digits = 2)
+mcmc_cor$print <- paste(mcmc_cor$est,
+  " (", mcmc_cor$lower, ", ", mcmc_cor$upper, ")", sep = "")
+```
+#### Aggression and Competition
+
+```{r agg_comp_mcmc, fig.height=2.3, fig.width=2.17}
+p <- ggplot(data = filter(sel_grads_mcmc_comp, variable == "Aggression"),
+  aes(x = mean_competition, y = post_mode))
+p <- p + geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.2, size = 0.2)
+p <- p + geom_point()
+p <- p + theme_bw(base_size = 10)
+p <- p + scale_x_continuous(breaks = c(3,4,5,6,7,8,9))
+p <- p + ylab("Selection Gradient")
+p <- p + ggtitle("Aggression")
+p <- p + xlab("Juvenile Competition")
+p <- p + theme(panel.grid.major = element_blank(),
+  panel.grid.minor = element_blank(), panel.background = element_blank(),
+  strip.background = element_blank(), strip.text = element_text(size = 10),
+  panel.border = element_rect(linetype = "solid", colour = "black"),
+  plot.title = element_text(size = 10))
+p <- p + ylim(c(-1, 1))
+p <- p + geom_text(data = filter(mcmc_cor, variable == "Aggression"),
+  aes(x = 6.5, y = 1, label = paste("Correlation = ", print, sep = '')),
+  size = 2.5)
+p + theme(plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm"))
+```
+
+#### Activity and Competition
+```{r act_comp_mcmc, fig.height=2.3, fig.width=2.17}
+p <- ggplot(data = filter(sel_grads_mcmc_comp, variable == "Activity"),
+  aes(x = mean_competition, y = post_mode))
+p <- p + geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.2, size = 0.2)
+p <- p + geom_point()
+p <- p + theme_bw(base_size = 10)
+p <- p + scale_x_continuous(breaks = c(3,4,5,6,7,8,9))
+p <- p + ylab("Selection Gradient")
+p <- p + ggtitle("Activity")
+p <- p + xlab("Juvenile Competition")
+p <- p + theme(panel.grid.major = element_blank(),
+  panel.grid.minor = element_blank(), panel.background = element_blank(),
+  strip.background = element_blank(), strip.text = element_text(size = 10),
+  panel.border = element_rect(linetype = "solid", colour = "black"),
+  plot.title = element_text(size = 10))
+p <- p + ylim(c(-1, 1.5))
+p <- p + geom_text(data = filter(mcmc_cor, variable == "Activity"),
+  aes(x = 6.5, y = 1.5, label = paste("Correlation = ", print, sep = '')),
+  size = 3.5)
+p <- p + theme(plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm"))
+```
+
+#### Docility and Competition
+```{r doc_comp_mcmc, fig.height=2.3, fig.width=2.17}
+p <- ggplot(data = filter(sel_grads_mcmc_comp, variable == "Docility"),
+  aes(x = mean_competition, y = post_mode))
+p <- p + geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.2, size = 0.2)
+p <- p + geom_point()
+p <- p + theme_bw(base_size = 10)
+p <- p + scale_x_continuous(breaks = c(3,4,5,6,7,8,9))
+p <- p + ylab("Selection Gradient")
+p <- p + ggtitle("Docility")
+p <- p + xlab("Juvenile Competition")
+p <- p + theme(panel.grid.major = element_blank(),
+  panel.grid.minor = element_blank(), panel.background = element_blank(),
+  strip.background = element_blank(), strip.text = element_text(size = 10),
+  panel.border = element_rect(linetype = "solid", colour = "black"),
+  plot.title = element_text(size = 10))
+p <- p + ylim(c(-0.60, 0.60))
+p <- p + geom_text(data = filter(mcmc_cor, variable == "Docility"),
+  aes(x = 6.5, y = 0.60, label = paste("Correlation = ", print, sep = '')),
+  size = 3.5)
+p <- p + theme(plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm"))
+```
+
+### Effect of competition on linear selection (glmms)
+```{r Competition_glmms_mcmc}
+load("data/analysis_steps/fit_raneff_data.RData")
+library(dplyr)
+fit_raneff_data <- tbl_df(fit_raneff_data)
+library(lme4)
+
+# Model with interactions between competition and the behavioral traits. 
+# grid_year and ID are random effects.
+arsLinearCompetition <- function(dat){
+  ars_linear_comp <- glmer(
+  	ars_all ~ 
+  	competition_s + 
+  	aggression_s + 
+  	competition_s:aggression_s + 
+  	activity_s + 
+  	competition_s:activity_s + 
+  	docility_s +
+  	competition_s:docility_s +
+    (1|Grid) + (1|ID),
+  	data = dat, family = poisson, control=glmerControl(optimizer="bobyqa")
+  	)
+  random_effect_variances <- VarCorr(ars_linear_comp)
+  data.frame(t(summary(ars_linear_comp)$coefficients[ ,"Estimate"]),
+  ID = random_effect_variances$ID[1], Grid = random_effect_variances$Grid[1])
+}
+
+library(foreach)
+library(doMC)
+ncores = 12
+registerDoMC(cores = ncores)
+
+batches <- data.frame(start = seq(1, 1000, round(1000/ncores))[1:ncores])
+batches$stop <- c(batches$start[2:length(batches$start)] - 1, 1000)
+
+start_time <- Sys.time()
+ars_linear_comp_posterior <- foreach(i = 1:ncores, .combine = rbind) %dopar% {
+  results <- fit_raneff_data %>%
+    filter(type == "raneff", itt %in% batches$start[i]:batches$stop[i]) %>%
+    group_by(itt, add = FALSE) %>%
+    do(arsLinearCompetition(.))
+}
+run_time <- Sys.time() - start_time
+print(run_time)
+
+save(ars_linear_comp_posterior,
+  file = "data/analysis_steps/ars_linear_comp_posterior.RData")
+```
+
+```{r format_ac}
+load("data/analysis_steps/ars_linear_comp_posterior.RData")
+library(MCMCglmm)
+library(lme4)
+library(data.table)
+
+getPosteriorParams <- function(x){
+  require(MCMCglmm)
+  dat_mcmc <- mcmc(x)
+  pm <- posterior.mode(dat_mcmc)
+  hpd <- HPDinterval(dat_mcmc, prob = 0.9)
+  pm_table <-  format(round(pm , digits = 2), digits = 1, nsmall = 2,
+    scientific = FALSE)
+  hpd_table <- format(round(hpd, digits = 2), digits = 1, nsmall = 2,
+    scientific = FALSE)
+  pm_hpd_table <- data.frame(cbind(pm_table, hpd_table))
+  pm_hpd_table$pm_hpd <- paste(
+    pm_table, " (", hpd_table[ ,1], ", ", hpd_table[ ,2], ")", sep = ''
+    )
+  pm_hpd_table$sig[sign(hpd[ ,1]) == sign(hpd[ ,2])] <- "*"
+  pm_hpd_table$sig[sign(hpd[ ,1]) != sign(hpd[ ,2])] <- " "
+  pm_hpd_table$space[sign(hpd[ ,1]) == sign(hpd[ ,2])] <- "*"
+  pm_hpd_table$space[sign(hpd[ ,1]) != sign(hpd[ ,2])] <- "&nbsp;"
+  pm_hpd_table$pm_hpd <- paste(pm_hpd_table$pm_hpd, pm_hpd_table$sig, sep = "")
+  return(pm_hpd_table)
+}
+
+linear_hpd_ars <- getPosteriorParams(ars_linear_comp_posterior %>%
+  ungroup() %>%
+  select(Intercept = X.Intercept., Competition = competition_s,
+    Aggression = aggression_s, Activity = activity_s, docility = docility_s,
+    "Competition x Aggression" = competition_s.aggression_s,
+    "Competition x Activity" = competition_s.activity_s,
+    "Competition x Docility" = competition_s.docility_s)
+    )
+```
+
+#### Interaction between competition and linear selection results
+
+The effect of competition on linear selection on female behavioral traits for annual reproductive success. Posterior modes are given with highest posterior density intervals in parentheses.
+
+```{r linear_hpd_ars_table, results='asis'}
+pandoc.table(linear_hpd_ars %>% select(pm_hpd), justify="right")
+```
+
+### Competition and nonlinear selection (glmms)
+
+```{r nonlinear_models}
+load("data/analysis_steps/fit_raneff_data.RData")
+library(lme4)
+
+arsNonlinearResults <- function(dat){
+  ars_model  <- glmer(ars_all ~ aggression_s*competition_s +
+    activity_s*competition_s + docility_s*competition_s +
+    aggression_s*activity_s*competition_s + I(aggression_s^2)*competition_s +
+    I(activity_s^2)*competition_s + I(docility_s^2)*competition_s +
+    (1 | grid_year) + (1|ID), data = dat, family = poisson,
+    control=glmerControl(optimizer="bobyqa"))
+  kpd_model  <- glmer(kprod   ~ aggression_s*competition_s +
+    activity_s*competition_s + docility_s*competition_s +
+    aggression_s*activity_s*competition_s + I(aggression_s^2)*competition_s +
+    I(activity_s^2)*competition_s + I(docility_s^2)*competition_s +
+    (1 | grid_year) + (1|ID), data = dat, family = poisson,
+    control=glmerControl(optimizer="bobyqa"))
+  ows_model  <- glmer(prop    ~ aggression_s*competition_s +
+    activity_s*competition_s + docility_s*competition_s +
+    aggression_s*activity_s*competition_s + I(aggression_s^2)*competition_s +
+    I(activity_s^2)*competition_s + I(docility_s^2)*competition_s +
+    (1 | grid_year) + (1|ID), data = dat, weights = kprod, family = binomial,
+    control=glmerControl(optimizer="bobyqa"))
+
+  ars_vc <- VarCorr(ars_model)
+  ars_t <- data.table(fitness = "ars",
+    t(summary(ars_model)$coefficients[ ,"Estimate"]), ID = ars_vc$ID[1],
+    grid_year = ars_vc$grid_year[1])
+  kpd_vc <- VarCorr(kpd_model)
+  kpd_t <- data.table(fitness = "kpd",
+    t(summary(kpd_model)$coefficients[ ,"Estimate"]), ID = kpd_vc$ID[1],
+    grid_year = kpd_vc$grid_year[1])
+  ows_vc <- VarCorr(ows_model)
+  ows_t <- data.table(fitness = "ows",
+    t(summary(ows_model)$coefficients[ ,"Estimate"]), ID = ows_vc$ID[1],
+    grid_year = ows_vc$grid_year[1])
+  rbind(rbind(ars_t, kpd_t), ows_t)
+}
+
+
+library(foreach)
+library(doMC)
+ncores = 12
+registerDoMC(cores = ncores)
+
+batches <- data.frame(start = seq(1, 1000, round(1000/ncores))[1:ncores])
+batches$stop <- c(batches$start[2:length(batches$start)] - 1, 1000)
+
+start_time <- Sys.time()
+nonlinear_mcmc <- foreach(i = 1:ncores, .combine = rbind) %dopar% {
+  results <- fit_raneff_data %>%
+    filter(type == "raneff", itt %in% batches$start[i]:batches$stop[i]) %>%
+    group_by(itt, add = FALSE) %>%
+    do(arsNonlinearResults(.))
+}
+run_time <- Sys.time() - start_time
+print(run_time)
+
+save(nonlinear_mcmc, file = "data/analysis_steps/nonlinear_mcmc_models.RData")
+```
+
+```{r format_for_tables}
+load("data/analysis_steps/nonlinear_mcmc_models.RData")
+
+pm_hpd_ars <- getPosteriorParams(
+  nonlinear_mcmc[nonlinear_mcmc$fitness =="ars", 3:18])
+pm_hpd_ows <- getPosteriorParams(
+  nonlinear_mcmc[nonlinear_mcmc$fitness =="ows", 3:18])
+pm_hpd_kpd <- getPosteriorParams(
+  nonlinear_mcmc[nonlinear_mcmc$fitness =="kpd", 3:18])
+
+nonlinear_results_mcmc <- data.frame(ARS = pm_hpd_ars$pm_hpd,
+  OWS = pm_hpd_ows$pm_hpd, Fecundity = pm_hpd_kpd$pm_hpd)
+  
+row.names(nonlinear_results_mcmc) <- c("Intercept", "Aggression",
+ "Competition", "Activity", "Docility", "Aggression^2", "Activity^2",
+ "Docility^2", "Aggression x Competition", "Activity x Competition",
+ "Docility x Competition", "Aggression x Activity",
+ "Aggression^2 x Competition", "Activity^2 x Competition",
+ "Docility^2 x Competition", "Agg. x Act. x Competition"
+ )
+```
+
+### Nonlinear results
+The effect of competition on linear and nonlinear selection on female behavioral traits for annual reproductive success. Posterior modes are given with highest posterior density intervals in parentheses.
+
+```{r nonlinear_results_mcmc, results='asis'}
+pandoc.table(nonlinear_results_mcmc[c(1,3,2,4:16), ], 
+  split.tables = 160)
+```
+
+## Ignoring behavioural uncertainty
+```{r load_blup_data}
+load("data/analysis_steps/sel_grads_blup.RData")
+load("data/analysis_steps/fit_raneff_data.RData")
+```
+
+### Correlations between selection gradients and competition
+```{r mean_comp_blup}
+competition_year <- fitness %>%
+  filter(grid_year != "SU2008") %>%
+  select(Year, competition) %>%
+  unique() %>%
+  group_by(Year, add = FALSE) %>%
+  summarise(mean_competition = mean(competition))
+  
+n_year <- filter(fit_raneff_data, type == "blup") %>%
+  group_by(Year, add = FALSE) %>%
+  summarise(n = n())
+competition_year <- left_join(competition_year, n_year, by = "Year")
+competition_year$Year <- as.character(competition_year$Year)
+
+load("data/analysis_steps/sel_grads_blup.RData")
+sel_grads_blup_competition <- left_join(sel_grads_blup, competition_year,
+  by = "Year")
+save(sel_grads_blup_competition, competition_year,
+  file = "data/analysis_steps/sel_grads_blup_competition.RData")
+```
+
+```{r comp_sg_plot_blup, fig.width=4.33, fig.height=4.5, fig.cap = ""}
+load("data/analysis_steps/sel_grads_blup_competition.RData")
+
+cor_sgrad_comp <- function(x){
+  v <- x$variable[1]
+  ct <- cor.test(x$coefficients, x$mean_competition)
+  data.frame(variable = v, est = ct$estimate, lower = ct$conf.int[1],
+    upper = ct$conf.int[2], stringsAsFactors = FALSE)
+}
+
+sg.comp <- sel_grads_blup_competition %>%
+  group_by(variable, add = FALSE) %>%
+  do(cor_sgrad_comp(x=.))
+sg.comp[ ,2:4] <- round(sg.comp[ ,2:4], digits = 2)
+sg.comp$print <- paste(sg.comp$est, " (", sg.comp$lower, ", ",
+  sg.comp$upper, ")", sep = "")
+```
+
+#### Aggression and Competition
+
+```{r agg_comp_blup, fig.height=2.3, fig.width=2.17}
+p <- ggplot(data = filter(sel_grads_blup_competition,
+  variable == "Aggression"), aes(x = mean_competition, y = coefficients))
+p <- p + geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.2, size = 0.2)
+p <- p + geom_point()
+p <- p + theme_bw(base_size = 10)
+p <- p + scale_x_continuous(breaks = c(3,4,5,6,7,8,9))
+p <- p + ylab("Selection Gradient")
+p <- p + ggtitle("Aggression")
+p <- p + xlab("Juvenile Competition")
+p <- p + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), strip.background = element_blank(), strip.text = element_text(size = 10), panel.border = element_rect(linetype = "solid", colour = "black"), plot.title = element_text(size = 10))
+p <- p + ylim(c(-1.4, 1.5))
+p <- p + geom_text(data = filter(sg.comp, variable == "Aggression"),
+  aes(x = 6, y = 1.5, label = paste("r = ", print, sep = '')), size = 2.5)
+p <- p + theme(plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm"))
+p
+```
+
+#### Activity and Competition
+
+```{r act_comp_blup, fig.height=2.3, fig.width=2.17}
+p <- ggplot(data = filter(sel_grads_blup_competition, variable == "Activity"), 
+  aes(x = mean_competition, y = coefficients))
+p <- p + geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.2, size = 0.2)
+p <- p + geom_point()
+p <- p + theme_bw(base_size = 10)
+p <- p + scale_x_continuous(breaks = c(3,4,5,6,7,8,9))
+p <- p + ylab("Selection Gradient")
+p <- p + ggtitle("Activity")
+p <- p + xlab("Juvenile Competition")
+p <- p + theme(panel.grid.major = element_blank(),
+  panel.grid.minor = element_blank(), panel.background = element_blank(),
+  strip.background = element_blank(), strip.text = element_text(size = 10),
+  panel.border = element_rect(linetype = "solid", colour = "black"),
+  plot.title = element_text(size = 10))
+p <- p + ylim(c(-1.9, 2.1))
+p <- p + geom_text(data = filter(sg.comp, variable == "Activity"),
+  aes(x = 6, y = 2.1, label = paste("r = ", print, sep = '')), size = 2.5)
+p <- p + theme(plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm"))
+p
+```
+
+#### Docility and Competition
+
+```{r doc_comp_blup, fig.height=2.3, fig.width=2.17}
+p <- ggplot(data = filter(sel_grads_blup_competition, variable == "Docility"),
+  aes(x = mean_competition, y = coefficients))
+p <- p + geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.2, size = 0.2)
+p <- p + geom_point()
+p <- p + theme_bw(base_size = 10)
+p <- p + scale_x_continuous(breaks = c(3,4,5,6,7,8,9))
+p <- p + ylab("Selection Gradient")
+p <- p + ggtitle("Docility")
+p <- p + xlab("Juvenile Competition")
+p <- p + theme(panel.grid.major = element_blank(),
+  panel.grid.minor = element_blank(), panel.background = element_blank(),
+  strip.background = element_blank(), strip.text = element_text(size = 10),
+  panel.border = element_rect(linetype = "solid", colour = "black"),
+  plot.title = element_text(size = 10))
+p <- p + scale_y_continuous(limits = c(-1.1, 1), breaks = c(-1, 0, 1))
+p <- p + geom_text(data = filter(sg.comp, variable == "Docility"),
+  aes(x = 6, y = 1, label = paste("r = ", print, sep = '')), size = 2.5)
+p <- p + theme(plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm"))
+p
+```
+
+### Effect of competition on linear selection
+```{r Competition_glmms_blup, eval=TRUE}
+load("data/analysis_steps/fit_raneff_data.RData")
+library(dplyr)
+fit_raneff_data <- tbl_df(fit_raneff_data)
+library(lme4)
+fit_raneff_data$oID <- 1:nrow(fit_raneff_data)
+
+ars_linear_model  <- glmer(ars_all ~ aggression_s*competition_s +
+  activity_s*competition_s + docility_s*competition_s + (1 | grid_year) +
+  (1|ID) + (1|oID), data = filter(fit_raneff_data, type == "blup"),
+  family = poisson, control=glmerControl(optimizer="bobyqa"))
+kpd_linear_model  <- glmer(kprod ~ aggression_s*competition_s +
+  activity_s*competition_s + docility_s*competition_s + (1 | grid_year) +
+  (1|ID) + (1|oID), data = filter(fit_raneff_data, type == "blup"),
+  family = poisson, control=glmerControl(optimizer="bobyqa"))
+ows_linear_model  <- glmer(prop ~ aggression_s*competition_s +
+  activity_s*competition_s + docility_s*competition_s + (1 | grid_year) +
+  (1|ID) + (1|oID), data = filter(fit_raneff_data, type == "blup"),
+  weights = kprod, family = binomial, control=glmerControl(optimizer="bobyqa"))
+
+save(ars_linear_model, kpd_linear_model, ows_linear_model,
+  file = "data/analysis_steps/ars_linear_blup_models.RData")
+```
+
+Models with observation level random effect.
+
+```{r Competition_glmms_overdispersed_blup}
+load("data/analysis_steps/fit_raneff_data.RData")
+library(dplyr)
+fit_raneff_data <- tbl_df(fit_raneff_data)
+library(lme4)
+
+fit_raneff_data$oID <- 1:nrow(fit_raneff_data)
+
+ars_linear_model_  <- glmer(ars_all ~ aggression_s*competition_s +
+  activity_s*competition_s + docility_s*competition_s + (1 | oID) +
+  (1 | grid_year) + (1|ID), data = filter(fit_raneff_data, type == "blup"),
+  family = poisson, control=glmerControl(optimizer="bobyqa"))
+kpd_linear_model_  <- glmer(kprod   ~ aggression_s*competition_s +
+  activity_s*competition_s + docility_s*competition_s + (1 | oID) +
+  (1 | grid_year) + (1|ID), data = filter(fit_raneff_data, type == "blup"), 
+  family = poisson, control=glmerControl(optimizer="bobyqa"))
+ows_linear_model_  <- glmer(prop    ~ aggression_s*competition_s +
+  activity_s*competition_s + docility_s*competition_s + (1 | oID) +
+  (1 | grid_year) + (1|ID), data = filter(fit_raneff_data, type == "blup"), 
+  weights = kprod, family = binomial, control=glmerControl(optimizer="bobyqa"))
+
+save(ars_linear_model, kpd_linear_model, ows_linear_model,
+  file = "data/analysis_steps/ars_linear_blup_models.RData")
+```
+
+```{r format_ac_blup}
+load("data/analysis_steps/ars_linear_blup_models.RData")
+library(lme4)
+
+getLmerParams <- function(x){
+  coefs <- summary(x)$coefficients
+  coef.table <- data.frame(format(coefs[ ,1:3], digits = 1, nsmall = 2, 
+    scientific = FALSE))
+  coef.table$pval[coefs[ ,4] > 0.001] <- format(coefs[coefs[ ,4] > 0.001, 4], 
+    digits = 1, nsmall = 2)
+  coef.table$pval[coefs[ ,4] < 0.001] <- "< 0.001"
+  coef.table$coefs <- paste(coef.table$Estimate, " ±", coef.table$Std..Error, 
+    sep = '')
+  return(coef.table)
+}
+
+ars_linear_blup_results <- getLmerParams(ars_linear_model)
+row.names(ars_linear_blup_results) <- c("Intercept", "Aggression",
+  "Competition", "Activity", "Docility", "Aggression x Competition",
+  "Activity x Competition", "Docility x Competition")
+names(ars_linear_blup_results) <- c("Estimate", "SE", "Z", "P", "Est ± se")
+```
+
+#### Interaction between competition and linear selection results
+
+```{r ars_linear_blup_results, results = 'asis'}
+pandoc.table(ars_linear_blup_results[c(1,3,2,4:8), c(5,4,3)],
+  justify = "right", split.tables = 160)
+```
+
+### Competition and nonlinear selection
+
+```{r nonlinear_models_blup}
+load("data/analysis_steps/fit_raneff_data.RData")
+library(lme4)
+fit_blups_data <- filter(fit_raneff_data, type == "blup")
+fit_blups_data$oID <- 1:nrow(fit_blups_data)
+
+ars_nl_model <- glmer(ars_all ~ aggression_s*competition_s + 
+  activity_s*competition_s + docility_s*competition_s + 
+  aggression_s*activity_s*competition_s + I(aggression_s^2)*competition_s + 
+  I(activity_s^2)*competition_s + I(docility_s^2)*competition_s +
+  (1 | grid_year) + (1|ID) + (1|oID),
+  data = fit_blups_data, family = poisson,
+  control=glmerControl(optimizer="bobyqa"))
+
+ars_nl_model <- glmer(ars_all ~ aggression_s*competition_s + 
+  activity_s*competition_s + docility_s*competition_s + 
+  aggression_s*activity_s*competition_s + I(aggression_s^2)*competition_s + 
+  I(activity_s^2)*competition_s + I(docility_s^2)*competition_s +
+  (1 | grid_year) + (1|ID),
+  data = fit_blups_data, family = poisson,
+  control=glmerControl(optimizer="bobyqa"))
+  
+kpd_nl_model <- glmer(kprod ~ aggression_s*competition_s + 
+  activity_s*competition_s + docility_s*competition_s + 
+  aggression_s*activity_s*competition_s + I(aggression_s^2)*competition_s + 
+  I(activity_s^2)*competition_s + I(docility_s^2)*competition_s +
+  (1 | grid_year) + (1|ID) + (1|oID),
+  data = fit_blups_data, family = poisson,
+  control=glmerControl(optimizer="bobyqa"))
+  
+ows_nl_model <- glmer(prop ~ aggression_s*competition_s + 
+  activity_s*competition_s + docility_s*competition_s + 
+  aggression_s*activity_s*competition_s + I(aggression_s^2)*competition_s + 
+  I(activity_s^2)*competition_s + I(docility_s^2)*competition_s +
+  (1 | grid_year) + (1|ID) + (1|oID),
+  data = fit_blups_data, weights = kprod,
+  family = binomial,
+  control=glmerControl(optimizer="bobyqa"))
+
+save(ars_nl_model,kpd_nl_model, ows_nl_model,
+  file = "data/analysis_steps/nl.blup_models.RData")
+
+fit_raneff_data %>%
+  ungroup() %>%
+  summarise(
+    mean_ars = mean(ars_all, na.rm = TRUE),
+    var_ars = var(ars_all, na.rm = TRUE),
+    mean_kpd = mean(kprod, na.rm = TRUE),
+    var_kpd = var(kprod, na.rm = TRUE)
+    )
+```
+
+#### Format results of nonlinear selection for table
+```{r format_for_tables_blup}
+load("data/analysis_steps/nl.blup_models.RData")
+
+coef_p_ars <- getLmerParams(ars_nl_model)
+coef_p_ows <- getLmerParams(ows_nl_model)
+coef_p_kpd <- getLmerParams(kpd_nl_model)
+
+term_names <- c("Intercept", "Aggression",
+ "Competition", "Activity", "Docility", "Aggression^2", "Activity^2",
+ "Docility^2", "Aggression x Competition", "Activity x Competition",
+ "Docility x Competition", "Aggression x Activity",
+ "Aggression^2 x Competition", "Activity^2 x Competition",
+ "Docility^2 x Competition", "Agg. x Act. x Competition"
+ )
+
+row.names(coef_p_ars) <- term_names
+row.names(coef_p_ows) <- term_names
+row.names(coef_p_kpd) <- term_names
+
+names(coef_p_ars) <- c("Estimate", "SE", "Z", "P", "Est ± se")
+names(coef_p_ows) <- c("Estimate", "SE", "Z", "P", "Est ± se")
+names(coef_p_kpd) <- c("Estimate", "SE", "Z", "P", "Est ± se")
+```
+
+### Nonlinear results
+The effect of competition on linear and nonlinear selection on female behavioral traits for annual reproductive success. Posterior modes are given with highest posterior density intervals in parentheses.
+
+#### ARS
+```{r coef_p_ars, results='asis'}
+pandoc.table(coef_p_ars[c(1,3,2,4:16), c(5,3,4)],
+ split.tables = 160)
+```
+
+#### OWS
+```{r coef_p_ows, results='asis'}
+pandoc.table(coef_p_ows[c(1,3,2,4:16), c(5,3,4)],
+ split.tables = 160)
+```
+
+#### Fecundity
+```{r coef_p_kpd, results='asis'}
+pandoc.table(coef_p_kpd[c(1,3,2,4:16), c(5,3,4)],
+ split.tables = 160)
+```
+
+#### Plot of quadratic interaction
+```{r figures_blups, tidy=TRUE, tidy.opts=list(keep.blank.line=TRUE, width.cutoff=60)}
+library(effects)
+library(ggplot2)
+
+g.ows <- glm(prop ~ aggression_s*competition_s + activity_s*competition_s + 
+  docility_s*competition_s + aggression_s:activity_s*competition_s + 
+  I(aggression_s^2)*competition_s,
+  data = filter(fit_raneff_data, type == "blup"),
+  weights = kprod, family = binomial)
+e.ows <- effect(term ="aggression_s:competition_s:activity_s", mod = g.ows)
+
+e <- Effect(c("aggression_s", "activity_s", "competition_s"), g.ows,
+  xlevels = list(aggression_s = 100, activity_s = 2, competition_s = 2))
+
+s <- summary(e, type = "link")
+se <- s$effect
+su <- s$upper
+sl <- s$lower
+d <- as.data.frame(se)
+du <- as.data.frame(su)
+dl <- as.data.frame(sl)
+names(d) <- c("la.lc", "ha.lc", "la.hc", "ha.hc")
+names(du) <- c("la.lc", "ha.lc", "la.hc", "ha.hc")
+names(dl) <- c("la.lc", "ha.lc", "la.hc", "ha.hc")
+
+plot_d <- data.frame(
+	Aggression = as.numeric(rep(row.names(s$effect), 12)),
+	OWS = c(d$la.lc, d$ha.lc, d$la.hc, d$ha.hc, du$la.lc, du$ha.lc, du$la.hc,
+    du$ha.hc, dl$la.lc, dl$ha.lc, dl$la.hc, dl$ha.hc),
+	Competition = rep(rep(c("Low\nCompetition", "High\nCompetition"),
+    each = 200), 3),
+	Activity = rep(rep(c("Low", "High"), each = 100), 6),
+	type = rep(c("main", "upper", "lower"), each = 400)
+)
+plot_d$env <- paste(plot_d$Competition, plot_d$Activity, sep = ".")
+
+quad_plot <- ggplot(plot_d, aes(x = Aggression, y = OWS)) + geom_line(aes(alpha = Activity, linetype = type, size = type)) +  facet_wrap( ~ Competition) + scale_alpha_discrete(range = c(1,0.3)) + scale_linetype_manual(values = c(2,1,2)) + scale_size_manual(values = c(0.3,1,0.3)) + ylab("Offspring\nOverwinter Survival") + xlab("Aggression") + theme_bw(base_size = 10) + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), panel.border = element_rect(linetype = "solid", colour = "black"), axis.ticks = element_blank(), axis.text = element_text(size = 10), legend.key=element_blank(), strip.background = element_blank()) + guides(linetype = FALSE, size = FALSE, alpha = guide_legend(override.aes=list(size = 1))) + theme(legend.position = c(0.75, 0.25), legend.background = element_blank(), legend.key.size = unit(0.4, "cm")) + theme(plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm")) + theme(axis.text.x = element_blank(), axis.text.y = element_blank())
+
+pdf("figure/quad_plot.pdf", width = 3.14, height = 2)
+quad_plot
+dev.off()
+
+```
+```{r fig.width=3.14, fig.height=2}
+quad_plot
+```
+
+#### Tile plot of interaction
+```{r tile_plot, tidy=TRUE, tidy.opts=list(keep.blank.line=TRUE, width.cutoff=60)}
+
+n = 12
+e <- Effect(c("aggression_s", "activity_s", "competition_s"), g.ows,
+  xlevels = list(aggression_s = n, activity_s = n, competition_s = 2))
+s <- summary(e, type = "response")
+de <- as.data.frame(s$effect)
+de_lc <- de[ ,1:n]
+de_hc <- de[ ,(n+1):(2*n)]
+
+fix.names <- function(x){
+	a <- unlist(lapply(strsplit(names(x), split = "\\."), "[[", 1))
+	b <- unlist(lapply(strsplit(names(x), split = "\\."), "[[", 2))
+	out <- paste(a,b, sep = ".")
+	return(out)
+	}
+
+d_hc <- data.frame(Aggression = rep(row.names(de_hc), n),
+  Activity = rep(fix.names(de_hc), each = n), OWS = as.vector(as.matrix(de_hc)))
+d_hc$Aggression <- as.numeric(as.character(d_hc$Aggression))
+d_hc$Activity   <- as.numeric(as.character(d_hc$Activity))
+
+d_lc <- data.frame(Aggression = rep(row.names(de_lc), n),
+  Activity = rep(fix.names(de_lc), each = n), OWS = as.vector(as.matrix(de_lc)))
+d_lc$Aggression <- as.numeric(as.character(d_lc$Aggression))
+d_lc$Activity   <- as.numeric(as.character(d_lc$Activity))
+
+tile_plot <- ggplot(d_lc, aes(x = Aggression, y = Activity, z = OWS)) +  geom_tile(aes(alpha = OWS), fill = "black", size = 0) + scale_alpha_continuous(range=c(0,0.8)) + ylab("Activity") + xlab("Aggression") + theme_bw(base_size = 10) + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), panel.border = element_rect(linetype = "solid", colour = "black"), axis.ticks = element_blank(), legend.key=element_blank(),strip.background = element_blank()) + guides(linetype = FALSE, size = FALSE, alpha = FALSE)+ theme(plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm"))
+
+pdf("figure/tile.pdf", width = 3.14, height = 3.14)
+tile_plot
+dev.off()
+```
+
+```{r fig.width=3.14, fig.height=3.14}
+tile_plot
+```

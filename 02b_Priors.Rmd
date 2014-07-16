@@ -1,0 +1,198 @@
+<!--pandoc
+t: html
+default-image-extension: png
+template: templates/html.template
+toc-depth: 4
+toc:
+
+t: latex
+s:
+S:
+latex-engine: xelatex
+template: templates/latex.template
+default-image-extension: pdf
+toc-depth: 4
+toc:
+-->
+
+```{r echo=FALSE, cache=FALSE, results="hide"}
+opts_chunk$set(cache=TRUE, fig.cap='', dev=c('png', 'pdf'), fig.width=6,
+  fig.height=4)
+opts_knit$set('upload.fun' = function(x) sub("\\.[[:alnum:]]*$", "", x) ) 
+```
+# Assessing the effect of priors on BLUPs
+
+```{r load_data2a}
+load("data/analysis_steps/pca.RData")
+library(tidyr)
+library(dplyr)
+library(MCMCglmm)
+library(pander)
+set.alignment('right', row.names = 'left')
+
+doc_data <- pca_data %>% filter(!is.na(docil))
+agg_data <- pca_data %>% filter(!is.na(misPC1))
+act_data <- pca_data %>% filter(!is.na(ofPC1))
+```
+
+## Priors
+From a post to r-sig-me by Ned Dochterman
+
+1. Parameter expanded
+2. Another parameter expanded just to see if results vary across runs
+3. Parameter expanded variance = docility variance
+4. Parameter expanded really high variance
+5. Inverse Wishart
+6. Inverse Gamma
+7. Flat, uniform, prior for just a variance
+8. Flat improper prior, equivalent to REML fitting.
+
+
+```{r doc_prior}
+priors <- list(
+  list(
+    G=list(G1=list(V=1, nu=1, alpha.mu = 0, alpha.V = 10000)),
+    R=list(V=1, nu=1)
+  ),
+  list(
+    G=list(G1=list(V=1, nu=1, alpha.mu = 0, alpha.V = 10000)),
+    R=list(V=1, nu=1)
+  ),
+  list(
+    G=list(
+      G1=list(
+        V=var(doc_data$docil, na.rm = TRUE), nu=1, alpha.mu = 0,
+          alpha.V = 10000
+      )
+    ),
+    R=list(V=var(doc_data$docil, na.rm = TRUE), nu=1)
+  ),
+  list(
+    G=list(G1=list(V=1000, nu=1, alpha.mu = 0, alpha.V = 1000)),
+    R=list(V=1000, nu=1)
+  ),
+  list(G=list(G1=list(V=1, nu=1)), R=list(V=1, nu=1)),
+  list(G=list(G1=list(V=1, nu=0.002)), R=list(V=1, nu=0.002)),
+  list(G=list(G1=list(V=1e-16, nu=-2)), R=list(V=1e-16, nu=-2))  ,
+  list(G=list(G1=list(V=1,nu=0)),R = list(V =1, nu = 0))
+)
+```
+## Run models
+
+```{r doc_blup}
+library(foreach)
+library(doMC)
+registerDoMC(cores = 8)
+
+thin <- 100
+burnin <- thin * 100
+nitt <- burnin + thin * 1000
+
+time_start <- Sys.time()
+m_priors <- foreach(i = 1:length(priors)) %dopar% {
+  MCMCglmm(docil ~ julian + Obs + handlevent_year + I(handlevent_year^2),
+  									random = ~ ID,
+  									prior = priors[[i]],
+  									pr = TRUE,
+  									data = doc_data,
+  									thin = thin,
+  									burnin = burnin,
+  									nitt = nitt,
+  									verbose = FALSE
+  									)
+}
+print(paste("Approx. models run time: ", format(Sys.time() - time_start)))
+save(m_priors, file = "data/analysis_steps/m_priors.RData")
+```
+
+### Model Diagnostics
+```{r doc_diagnostics}
+load("data/analysis_steps/m_priors.RData")
+
+ad <- list()
+gd <- list()
+hd <- list()
+
+for(i in 1:length(priors)){
+  ad[[i]] <- autocorr.diag(m_priors[[i]]$VCV)
+  gd[[i]] <- geweke.diag(m_priors[[i]]$VCV)
+  hd[[i]] <- heidel.diag(m_priors[[i]]$VCV)  
+}
+ad
+gd
+hd
+```
+
+```{r diagnostic_plots, fig.cap = FALSE}
+
+for(i in 1:length(priors)){
+  plot(m_priors[[i]]$VCV)
+}
+
+```
+
+## Extract raneffs
+```{r extract_mcmc2}
+
+extractMCMCglmmBLUPs <- function(x, value, ptype = "1"){
+  p_modes <- posterior.mode(x$Sol) ## Get posterior_modes of the BLUPs
+  p_modes <- p_modes[grep("ID", names(p_modes))] ## Get all the ID rows
+  p_modes <- stack(p_modes)
+  names(p_modes) <- c(value, "ID")
+  p_modes$type <- paste("mcmc.mode", ptype, sep = '.')
+  p_modes$ID <- gsub("ID\\.", "", p_modes$ID)
+  p_modes$itt <- NA
+  sols <- data.frame(x$Sol) ## Get BLUPs
+  sols <- sols[ ,grep("ID", names(sols))] ## Get all the ID columns
+  sols <- stack(sols)
+  names(sols) <- c(value, "ID")
+  sols$itt <- 1:1000 ## Just an index for each MCMC sample
+  sols$type = paste("mcmc", ptype, sep = '.')
+  sols$ID <- gsub("ID\\.", "", sols$ID)
+  rbind(sols, p_modes)
+}
+
+doc_mcmc <- list()
+for(i in 1:length(priors)){
+  doc_mcmc[[i]] <- extractMCMCglmmBLUPs(m_priors[[i]],
+    value = "docility", ptype = i)  
+}
+
+mcmc_priors <- do.call("rbind", doc_mcmc)
+
+```
+
+## Compare MCMC priors
+Comparing the effect of priors on the posterior distributions.
+
+### Posterior modes
+
+```{r compare-blups, results = "asis"}
+mcmc_modes <- mcmc_priors[grep("mode", mcmc_priors$type), ]
+mcmc_modes$itt <- NULL
+mcmc_modes <- spread(mcmc_modes, type, docility)
+
+cov_modes <- cov(mcmc_modes[ ,2:ncol(mcmc_modes)])
+cor_modes <- cor(mcmc_modes[ ,2:ncol(mcmc_modes)])
+
+cov_modes[upper.tri(cov_modes)] <- cor_modes[upper.tri(cor_modes)]
+
+pandoc.table(cov_modes)
+```
+
+```{r plot_modes, fig.cap="", fig.width=8, fig.height=8}
+library(ggplot2)
+library(GGally)
+ggpairs(mcmc_modes, columns = 3:ncol(mcmc_modes))
+```
+
+Ok, the models are all converging on the same point estimates. Why 0.95 correlation???
+
+### Variance of blups
+```{r compare-vars}
+mcmc_itts <- mcmc_priors[!is.na(mcmc_priors$itt), ]
+tapply(mcmc_itts$docility, mcmc_itts$type, var)
+tapply(mcmc_itts$docility, mcmc_itts$type, range)
+```
+No variation in variances either...
+

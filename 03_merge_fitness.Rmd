@@ -1,0 +1,192 @@
+<!--pandoc
+t: html
+default-image-extension: png
+template: templates/html.template
+toc-depth: 4
+toc:
+
+t: latex
+s:
+S:
+latex-engine: xelatex
+template: templates/latex.template
+default-image-extension: pdf
+toc-depth: 4
+toc:
+-->
+
+```{r echo=FALSE, cache=FALSE, results="hide"}
+opts_chunk$set(cache=TRUE, fig.cap='', dev=c('png', 'pdf'), fig.width=6,
+  fig.height=4)
+opts_knit$set('upload.fun' = function(x) sub("\\.[[:alnum:]]*$", "", x) ) 
+opts_chunk$set(cache.path='cache/03/')
+```
+# Fitness and Standardization
+
+###Load Data
+
+```{r fitness_data}
+library(dplyr)
+library(pander)
+set.alignment('right', row.names = 'left')
+load("data/analysis_steps/raneffs_blups.RData")
+# load("data/analysis_steps/pca.RData")
+fitness <- read.table(file = "data/fitness+competition.csv", sep = ',',
+  header = TRUE, stringsAsFactors = FALSE)
+fitness <- tbl_df(fitness)
+```
+
+## Merge fitness with blups
+
+```{r merge_fitness }
+fitness$ID <- as.character(fitness$ID)
+fit_raneff_data <- inner_join(fitness, raneffs_blups, by = "ID")
+fit_raneff_data
+```
+
+## Merge fitness with pca & docility repeated mesures data
+
+```{r merge_repeated}
+load("data/analysis_steps/pca.RData")
+pca_to_merge <- pca_data %>%
+  filter(Sex == "F") %>%
+  select(ID, Year, Grid, julian, Obs, docility = docil, handlevent_year,
+    trial_life, trial_year, aggression = misPC1, activity = ofPC1)
+
+## Can't use dplyr join because need outer join
+fit_behav_data <- merge(pca_to_merge, fitness %>%
+  select(-Sex), by = c("ID", "Year", "Grid"), all = TRUE)
+fit_behav_data <- tbl_df(fit_behav_data)
+```
+
+## Relative Fitness
+Calculate relative fitness for each year & population combination. Two populations (Grids).  
+Three measures of fitness:
+
+1. ars_all = Annual reproductive success over all litters (no. pups that survived overwinter)  
+2. kprod   = Fecundity (kids produced)  
+3. prop    = Offpsring overwinter survival (proportion of pups produced that survived overwinter)  
+
+```{r RelativeFitness }
+# Calculate offspring overwitner survival
+fit_raneff_data <- fit_raneff_data %>% mutate(prop = ars_all/kprod)
+
+fit_raneff_data <- fit_raneff_data %>%
+  group_by(Grid, Year, itt) %>%
+  mutate(rel_ars = ars_all / mean(ars_all),
+   rel_kpd = kprod / mean(kprod),
+   rel_ows = prop / mean(prop)
+   )
+
+fit_behav_data <- fit_behav_data %>% mutate(prop = ars_all/kprod)
+fit_behav_data <- fit_behav_data %>%
+  group_by(Grid, Year) %>%
+  mutate(rel_ars = ars_all / mean(ars_all),
+   rel_kpd = kprod / mean(kprod),
+   rel_ows = prop / mean(prop)
+   )
+```
+Now:
+
+* rel_ars = relative ARS
+* rel_kpd = relative fecunidty
+* felOWS = relative offspring overwinter survival
+
+## Standardize Variables
+Standaradized to mean 0 and sd 1. Standardized variables renamed from xxx to xxx_s or xxx_sgy (for standardized within grid year). Standardized within each BLUP itteration.
+
+```{r standardize-traits}
+## Will stadardize within "itteration".
+
+# Standardize within itteration for glm analyses
+fit_raneff_data <- fit_raneff_data %>%
+  group_by(itt, add = FALSE) %>%
+  mutate(
+    aggression_s  = (aggression  - mean(aggression, na.rm = TRUE))  /
+      sd(aggression, na.rm = TRUE),
+    activity_s    = (activity    - mean(activity, na.rm = TRUE))    /
+      sd(activity, na.rm = TRUE),
+    docility_s    = (docility    - mean(docility, na.rm = TRUE))    /
+      sd(docility, na.rm = TRUE),
+    competition_s = (competition - mean(competition, na.rm = TRUE)) /
+      sd(competition, na.rm = TRUE)
+      )
+
+# Standardize within itteration and grid-year for selection gradients
+fit_raneff_data <- fit_raneff_data %>%
+  group_by(itt, Year, Grid, add = FALSE) %>%
+  mutate(
+    aggression_sgy = (aggression - mean(aggression, na.rm = TRUE)) /
+    sd(aggression, na.rm = TRUE),
+    activity_sgy   = (activity   - mean(activity, na.rm = TRUE))   /
+    sd(activity, na.rm = TRUE),
+    docility_sgy   = (docility   - mean(docility, na.rm = TRUE))   /
+    sd(docility, na.rm = TRUE)
+    )
+
+# Standardize for glmm analyses
+fit_behav_data <- fit_behav_data %>%
+  ungroup() %>%
+  mutate(
+    aggression_s  = (aggression  - mean(aggression, na.rm = TRUE))  /
+    sd(aggression, na.rm = TRUE),
+    activity_s    = (activity    - mean(activity, na.rm = TRUE))    /
+    sd(activity, na.rm = TRUE),
+    docility_s    = (docility    - mean(docility, na.rm = TRUE))    /
+    sd(docility, na.rm = TRUE),
+    competition_s = (competition - mean(competition, na.rm = TRUE)) /
+    sd(competition, na.rm = TRUE)
+    )
+```
+```{r test_stadardization, results='asis'}
+fit_raneff_data %>%
+  group_by(itt, add = FALSE) %>%
+  summarise(
+    v_agg = var(aggression_s, na.rm = TRUE),
+    v_act = var(activity_s, na.rm = TRUE),
+    v_doc = var(docility_s, na.rm = TRUE)
+    ) %>%
+  head(.,n=10) %>%
+  pandoc.table(.)
+```
+```{r test_stadardization_gy, results='asis'}
+fit_raneff_data %>%
+  group_by(itt, Year, Grid, add = FALSE) %>%
+  summarise(
+    v_agg = var(aggression_sgy, na.rm = TRUE),
+    v_act = var(activity_sgy, na.rm = TRUE),
+    v_doc = var(docility_sgy, na.rm = TRUE)
+    ) %>%
+  head(.,n=10) %>%
+  pandoc.table(.)
+```
+```{r fillin_0_for_NA}
+## Fill NAs with mean trait values (in the case of the standardized traits, the 
+## mean is zero)
+fit_raneff_data$aggression_s[is.na(fit_raneff_data$aggression_s)]     <- 0
+fit_raneff_data$activity_s[is.na(fit_raneff_data$activity_s)]         <- 0
+fit_raneff_data$docility_s[is.na(fit_raneff_data$docility_s)]         <- 0
+fit_raneff_data$aggression_sgy[is.na(fit_raneff_data$aggression_sgy)] <- 0
+fit_raneff_data$activity_sgy[is.na(fit_raneff_data$activity_sgy)]     <- 0
+fit_raneff_data$docility_sgy[is.na(fit_raneff_data$docility_sgy)]     <- 0
+```
+
+## Sample Sizes
+```{r samples, results='asis'}
+fit_raneff_data %>%
+  filter(itt == "1") %>%
+  group_by(Grid, Year, add = FALSE) %>%
+  summarise(n()) %>%
+  pandoc.table(.)
+  
+fit_raneff_data %>%
+  filter(itt == "1") %>%
+  group_by(Year, add = FALSE) %>%
+  summarise(n()) %>%
+  pandoc.table(.)
+```
+
+```{r save_data }
+save(fit_raneff_data, file = "data/analysis_steps/fit_raneff_data.RData")
+save(fit_behav_data, file = "data/analysis_steps/fit_behav_data.RData")
+```
