@@ -1,5 +1,7 @@
 # Fluctuating selection on behaviour in a wild population of red squirrels
 
+[![DOI](https://zenodo.org/badge/5166/rwtaylor/2014-female-selection.png)](http://dx.doi.org/10.5281/zenodo.10908)
+
 Date: July 16, 2014
 
 Included is the code for our manuscript concerning selection on female red squirrel behavior.
