@@ -1,0 +1,11 @@
+*.md
+!Readme.md
+*.pdf
+*.html
+*.RData
+*.Rdata
+*.Rout
+.Rapp.history
+.Rhistory
+.Rdata
+.DS_Store
