@@ -9,3 +9,6 @@
 .Rhistory
 .Rdata
 .DS_Store
+
+figure/*
+final_figures
