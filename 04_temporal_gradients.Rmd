@@ -360,7 +360,8 @@ p + theme(plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm"))
 ```{r summary_stats, results='asis'}
 library(dplyr)
 sign_change <- function(x){
-  # sign changes calculated as the number of changes in direction between successive years relative to n−1
+  # sign changes calculated as the number of changes in direction between 
+  # successive years relative to n−1
   s <- sign(x)
   sum(s[1:(length(s)-1)] != s[-1])/(length(s)-1)
 }
