@@ -174,7 +174,7 @@ of_sub_data <- foreach(i = 1:100, .combine = 'rbind') %do% {
   do(sample_n(., 1)) %>%
   mutate(itt = i)  
 }
-save(of_data, of_sub_data, file = "data/analysis_steps/of_sub_data")
+save(of_data, of_sub_data, file = "data/analysis_steps/of_sub_data.RData")
 ```
 
 ### Bartlett's test & KMO
