@@ -31,10 +31,10 @@ library(grid)
 library(dplyr)
 library(pander)
 set.alignment('right', row.names = 'left')
-load("data/analysis_steps/sel_grads_mcmc.RData")
+load("data/analyses_data/sel_grads_mcmc.RData")
 fitness <- read.table(file = "data/fitness+competition.csv", sep = ',',
   header = TRUE, stringsAsFactors = FALSE)
-load("data/analysis_steps/fit_raneff_data.RData")
+load("data/analyses_data/fit_raneff_data.RData")
 ```
 
 We will examine the effect of competition on selection in two general steps.
@@ -59,15 +59,15 @@ n_year <- filter(fit_raneff_data, type == "blup") %>%
 competition_year <- left_join(competition_year, n_year, by = "Year")
 competition_year$Year <- as.character(competition_year$Year)
 
-load("data/analysis_steps/sel_grads_mcmc.RData")
+load("data/analyses_data/sel_grads_mcmc.RData")
 sel_grads_mcmc_comp <- left_join(sel_grads_mcmc, competition_year,
   by = "Year")
 save(sel_grads_mcmc_comp, competition_year,
-  file = "data/analysis_steps/sel_grads_mcmc_comp.RData")
+  file = "data/analyses_data/sel_grads_mcmc_comp.RData")
 ```
 
 ```{r calc_correlations}
-load("data/analysis_steps/sel_grads_mcmc_comp.RData")
+load("data/analyses_data/sel_grads_mcmc_comp.RData")
 
 cor_sgrad_comp <- function(x){
   v <- x$variable[1]
@@ -155,7 +155,7 @@ p <- p + theme(plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm"))
 
 ### Effect of competition on linear selection (glmms)
 ```{r Competition_glmms_mcmc}
-load("data/analysis_steps/fit_raneff_data.RData")
+load("data/analyses_data/fit_raneff_data.RData")
 library(dplyr)
 fit_raneff_data <- tbl_df(fit_raneff_data)
 library(lme4)
@@ -199,11 +199,11 @@ run_time <- Sys.time() - start_time
 print(run_time)
 
 save(ars_linear_comp_posterior,
-  file = "data/analysis_steps/ars_linear_comp_posterior.RData")
+  file = "data/analyses_data/ars_linear_comp_posterior.RData")
 ```
 
 ```{r format_ac}
-load("data/analysis_steps/ars_linear_comp_posterior.RData")
+load("data/analyses_data/ars_linear_comp_posterior.RData")
 library(MCMCglmm)
 library(lme4)
 library(data.table)
@@ -250,7 +250,7 @@ pandoc.table(linear_hpd_ars %>% select(pm_hpd), justify="right")
 ### Competition and nonlinear selection (glmms)
 
 ```{r nonlinear_models}
-load("data/analysis_steps/fit_raneff_data.RData")
+load("data/analyses_data/fit_raneff_data.RData")
 library(lme4)
 
 arsNonlinearResults <- function(dat){
@@ -307,11 +307,11 @@ nonlinear_mcmc <- foreach(i = 1:ncores, .combine = rbind) %dopar% {
 run_time <- Sys.time() - start_time
 print(run_time)
 
-save(nonlinear_mcmc, file = "data/analysis_steps/nonlinear_mcmc_models.RData")
+save(nonlinear_mcmc, file = "data/analyses_data/nonlinear_mcmc_models.RData")
 ```
 
 ```{r format_for_tables}
-load("data/analysis_steps/nonlinear_mcmc_models.RData")
+load("data/analyses_data/nonlinear_mcmc_models.RData")
 
 pm_hpd_ars <- getPosteriorParams(
   nonlinear_mcmc[nonlinear_mcmc$fitness =="ars", 3:18])
@@ -342,8 +342,8 @@ pandoc.table(nonlinear_results_mcmc[c(1,3,2,4:16), ],
 
 ## Ignoring behavioural uncertainty
 ```{r load_blup_data}
-load("data/analysis_steps/sel_grads_blup.RData")
-load("data/analysis_steps/fit_raneff_data.RData")
+load("data/analyses_data/sel_grads_blup.RData")
+load("data/analyses_data/fit_raneff_data.RData")
 ```
 
 ### Correlations between selection gradients and competition
@@ -361,15 +361,15 @@ n_year <- filter(fit_raneff_data, type == "blup") %>%
 competition_year <- left_join(competition_year, n_year, by = "Year")
 competition_year$Year <- as.character(competition_year$Year)
 
-load("data/analysis_steps/sel_grads_blup.RData")
+load("data/analyses_data/sel_grads_blup.RData")
 sel_grads_blup_competition <- left_join(sel_grads_blup, competition_year,
   by = "Year")
 save(sel_grads_blup_competition, competition_year,
-  file = "data/analysis_steps/sel_grads_blup_competition.RData")
+  file = "data/analyses_data/sel_grads_blup_competition.RData")
 ```
 
 ```{r comp_sg_plot_blup, fig.width=4.33, fig.height=4.5, fig.cap = ""}
-load("data/analysis_steps/sel_grads_blup_competition.RData")
+load("data/analyses_data/sel_grads_blup_competition.RData")
 
 cor_sgrad_comp <- function(x){
   v <- x$variable[1]
@@ -456,7 +456,7 @@ p
 
 ### Effect of competition on linear selection
 ```{r Competition_glmms_blup, eval=TRUE}
-load("data/analysis_steps/fit_raneff_data.RData")
+load("data/analyses_data/fit_raneff_data.RData")
 library(dplyr)
 fit_raneff_data <- tbl_df(fit_raneff_data)
 library(lme4)
@@ -476,13 +476,13 @@ ows_linear_model  <- glmer(prop ~ aggression_s*competition_s +
   weights = kprod, family = binomial, control=glmerControl(optimizer="bobyqa"))
 
 save(ars_linear_model, kpd_linear_model, ows_linear_model,
-  file = "data/analysis_steps/ars_linear_blup_models.RData")
+  file = "data/analyses_data/ars_linear_blup_models.RData")
 ```
 
 Models with observation level random effect.
 
 ```{r Competition_glmms_overdispersed_blup}
-load("data/analysis_steps/fit_raneff_data.RData")
+load("data/analyses_data/fit_raneff_data.RData")
 library(dplyr)
 fit_raneff_data <- tbl_df(fit_raneff_data)
 library(lme4)
@@ -503,11 +503,11 @@ ows_linear_model_  <- glmer(prop    ~ aggression_s*competition_s +
   weights = kprod, family = binomial, control=glmerControl(optimizer="bobyqa"))
 
 save(ars_linear_model, kpd_linear_model, ows_linear_model,
-  file = "data/analysis_steps/ars_linear_blup_models.RData")
+  file = "data/analyses_data/ars_linear_blup_models.RData")
 ```
 
 ```{r format_ac_blup}
-load("data/analysis_steps/ars_linear_blup_models.RData")
+load("data/analyses_data/ars_linear_blup_models.RData")
 library(lme4)
 
 getLmerParams <- function(x){
@@ -539,7 +539,7 @@ pandoc.table(ars_linear_blup_results[c(1,3,2,4:8), c(5,4,3)],
 ### Competition and nonlinear selection
 
 ```{r nonlinear_models_blup}
-load("data/analysis_steps/fit_raneff_data.RData")
+load("data/analyses_data/fit_raneff_data.RData")
 library(lme4)
 fit_blups_data <- filter(fit_raneff_data, type == "blup")
 fit_blups_data$oID <- 1:nrow(fit_blups_data)
@@ -578,7 +578,7 @@ ows_nl_model <- glmer(prop ~ aggression_s*competition_s +
   control=glmerControl(optimizer="bobyqa"))
 
 save(ars_nl_model,kpd_nl_model, ows_nl_model,
-  file = "data/analysis_steps/nl.blup_models.RData")
+  file = "data/analyses_data/nl.blup_models.RData")
 
 fit_raneff_data %>%
   ungroup() %>%
@@ -592,7 +592,7 @@ fit_raneff_data %>%
 
 #### Format results of nonlinear selection for table
 ```{r format_for_tables_blup}
-load("data/analysis_steps/nl.blup_models.RData")
+load("data/analyses_data/nl.blup_models.RData")
 
 coef_p_ars <- getLmerParams(ars_nl_model)
 coef_p_ows <- getLmerParams(ows_nl_model)

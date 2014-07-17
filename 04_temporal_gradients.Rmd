@@ -31,7 +31,7 @@ library(ggplot2)
 library(grid)
 
 # Load Data
-load("data/analysis_steps/fit_raneff_data.RData")
+load("data/analyses_data/fit_raneff_data.RData")
 fit_raneff_data$Year <- as.character(fit_raneff_data$Year)
 ```
 
@@ -65,11 +65,11 @@ ars_year <- glmer(ars_all ~ Year + Grid + activity_s + activity_s:Year +
   (1|ID) + (1|oID), data = fit_raneff_data_blup, family = poisson, 
   control=glmerControl(optimizer="bobyqa"))
   
-save(ars_year, file = "data/analysis_steps/ars_year.RData")
+save(ars_year, file = "data/analyses_data/ars_year.RData")
 ```
 
 ```{r Temporal, results='asis'}
-load("data/analysis_steps/ars_year.RData")
+load("data/analyses_data/ars_year.RData")
 # Test fit of models. Does the addition of year:traits improve the fit?
 library(car)
 library(lme4)
@@ -120,11 +120,11 @@ print(paste("Approx. run time: ", format(Sys.time() - start_time)))
 sel_grads_mcmc_post <- tbl_df(sel_grads_mcmc_post)
 
 save(sel_grads_mcmc_post,
-  file = "data/analysis_steps/sel_grads_mcmc_post.RData")
+  file = "data/analyses_data/sel_grads_mcmc_post.RData")
 ```
 
 ```{r get_creds}
-load("data/analysis_steps/sel_grads_mcmc_post.RData")
+load("data/analyses_data/sel_grads_mcmc_post.RData")
 
 library(MCMCglmm)
 getCred <- function(x, sig = 0.05){
@@ -161,11 +161,11 @@ sel_grads_mcmc$lower_sig_star[sel_grads_mcmc$post_mode < 0 &
   sel_grads_mcmc$upper < 0] <- "*"
 
 save(sel_grads_mcmc, sel_grads_mcmc_post, getCred,
-  file = "data/analysis_steps/sel_grads_mcmc.RData")
+  file = "data/analyses_data/sel_grads_mcmc.RData")
 ```
 
 ```{r format_sel_grads_mcmc, results='asis'}
-load("data/analysis_steps/sel_grads_mcmc.RData")
+load("data/analyses_data/sel_grads_mcmc.RData")
 # Format for table
 sgt <- sel_grads_mcmc
 sgt$sig_star <- ""
@@ -200,7 +200,7 @@ pandoc.table(
 
 ### Plots
 ```{r sel_grads_mcmc_plot}
-load("data/analysis_steps/sel_grads_mcmc_post.RData")
+load("data/analyses_data/sel_grads_mcmc_post.RData")
 library(ggplot2)
 library(dplyr)
 
@@ -425,11 +425,11 @@ sel_grads_blup <- fit_raneff_data %>%
 sel_grads_blup$variable <- as.character(sel_grads_blup$variable)
 sel_grads_blup$Year <- as.character(sel_grads_blup$Year)
 sel_grads_blup <- tbl_df(sel_grads_blup)
-save(sel_grads_blup, file = "data/analysis_steps/sel_grads_blup.RData")
+save(sel_grads_blup, file = "data/analyses_data/sel_grads_blup.RData")
 ```
 
 ```{r format_sel_grads_blup, results='asis'}
-load("data/analysis_steps/sel_grads_blup.RData")
+load("data/analyses_data/sel_grads_blup.RData")
 # Format for table
 sgt <- sel_grads_blup
 sgt$sig_star <- ""
@@ -469,7 +469,7 @@ pandoc.table(
 Linear selection gradients ± 95% credible intervals for female behavioral traits on annual reproductive success.
 
 ```{r sel_grads_blup_plot, fig.width=6, fig.height=4}
-load("data/analysis_steps/sel_grads_blup.RData")
+load("data/analyses_data/sel_grads_blup.RData")
 sel_grads_blup$post_mode <- sel_grads_blup$coefficients
 sel_grads_blup$upper_sig_star <- ""
 sel_grads_blup$lower_sig_star <- ""
@@ -514,7 +514,7 @@ p
 
 ### Correlations
 ```{r sg_cors_blup, fig.width=5, fig.height=5}
-load("data/analysis_steps/sel_grads_blup.RData")
+load("data/analyses_data/sel_grads_blup.RData")
 sel_grads_blup_flat <- data.frame(
   Aggression = filter(sel_grads_blup, variable == "Aggression")$coefficients,
   Agg_upper  = filter(sel_grads_blup, variable == "Aggression")$upper,
@@ -629,8 +629,8 @@ pandoc.table(sum_stats_blup)
 
 ### Table
 ```{r compare, results='asis'}
-load("data/analysis_steps/sel_grads_blup.RData")
-load("data/analysis_steps/sel_grads_mcmc.RData")
+load("data/analyses_data/sel_grads_blup.RData")
+load("data/analyses_data/sel_grads_mcmc.RData")
 compare_grads <- left_join(select(sel_grads_blup, Year, variable,
   blup_coef = coefficients, blup_upper = upper, blup_lower = lower),
   select(sel_grads_mcmc, Year, variable, mcmc_pm = post_mode,

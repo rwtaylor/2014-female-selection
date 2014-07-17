@@ -23,7 +23,7 @@ opts_knit$set('upload.fun' = function(x) sub("\\.[[:alnum:]]*$", "", x) )
 # Assessing the effect of priors on BLUPs
 
 ```{r load_data2a}
-load("data/analysis_steps/pca.RData")
+load("data/analyses_data/pca.RData")
 library(tidyr)
 library(dplyr)
 library(MCMCglmm)
@@ -102,12 +102,12 @@ m_priors <- foreach(i = 1:length(priors)) %dopar% {
   									)
 }
 print(paste("Approx. models run time: ", format(Sys.time() - time_start)))
-save(m_priors, file = "data/analysis_steps/m_priors.RData")
+save(m_priors, file = "data/analyses_data/m_priors.RData")
 ```
 
 ### Model Diagnostics
 ```{r doc_diagnostics}
-load("data/analysis_steps/m_priors.RData")
+load("data/analyses_data/m_priors.RData")
 
 ad <- list()
 gd <- list()

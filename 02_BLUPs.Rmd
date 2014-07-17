@@ -28,7 +28,7 @@ library(pander)
 set.alignment('right', row.names = 'left')
 library(dplyr)
 library(MCMCglmm)
-load("data/analysis_steps/pca.RData")
+load("data/analyses_data/pca.RData")
 
 doc_data <- pca_data %>% filter(!is.na(docil))
 agg_data <- pca_data %>% filter(!is.na(misPC1))
@@ -63,14 +63,14 @@ doc_mcmc_model <- MCMCglmm(docil ~ julian + Obs + handlevent_year +
                      verbose = FALSE
                      )
 print(paste("Approx. model run time: ", format(Sys.time() - time_start)))
-save(doc_mcmc_model, file = "data/analysis_steps/doc_mcmc_model.RData")
+save(doc_mcmc_model, file = "data/analyses_data/doc_mcmc_model.RData")
 ```
 
 ### Docility Repeatability
 Repeatability is the ratio of the between individual variance to the total variance of the trait (within and between individual variance).
 
 ```{r docility_repeatability, results='asis'}
-load("data/analysis_steps/doc_mcmc_model.RData")
+load("data/analyses_data/doc_mcmc_model.RData")
 
 PM_HPD <- function(x){
   # Get the posterior mode and HPD interval for a posterior distribution
@@ -109,7 +109,7 @@ The above model treats repeated measures within a year the same as repeated meas
 
 
 ```{r docility_across}
-load("data/analysis_steps/doc_mcmc_model.RData")
+load("data/analyses_data/doc_mcmc_model.RData")
 # Split the dataset into within and across year sets
 # We will select one random trial for each squirrel from each year
 ## Now split into groups of ID & Year and sample one trial at random
@@ -138,11 +138,11 @@ doc_mcmc_model_across <- MCMCglmm(docil ~ julian + Obs + handlevent_year +
                             )
 print(paste("Approx. model run time: ", format(Sys.time() - time_start)))
 save(doc_mcmc_model_across,
-  file = "data/analysis_steps/doc_mcmc_model_across.RData")
+  file = "data/analyses_data/doc_mcmc_model_across.RData")
 ```
 
 ```{r doc_across_table, results='asis'}
-load("data/analysis_steps/doc_mcmc_model_across.RData")
+load("data/analyses_data/doc_mcmc_model_across.RData")
 
 doc_I_var_across <- PM_HPD(doc_mcmc_model_across$VCV[ ,"ID"])
 doc_P_var_across <- PM_HPD(mcmc(rowSums(doc_mcmc_model_across$VCV)))
@@ -198,11 +198,11 @@ doc_mcmc_model_within <- MCMCglmm(docil ~ julian + Obs + handlevent_year +
                           )
 print(paste("Approx. model run time: ", format(Sys.time() - time_start)))
 save(doc_mcmc_model_within,
-  file = "data/analysis_steps/doc_mcmc_model_within.RData")
+  file = "data/analyses_data/doc_mcmc_model_within.RData")
 ```
 
 ```{r doc_within.table, results='asis'}
-load("data/analysis_steps/doc_mcmc_model_within.RData")
+load("data/analyses_data/doc_mcmc_model_within.RData")
 
 doc_I_var_within <- PM_HPD(doc_mcmc_model_within$VCV[ ,"ID"])
 doc_P_var_within <- PM_HPD(mcmc(rowSums(doc_mcmc_model_within$VCV)))
@@ -245,12 +245,12 @@ agg_mcmc_model <- MCMCglmm(misPC1 ~ julian + trial_life + I(trial_life^2),
                     )
 print(paste("Approx. model run time: ", format(Sys.time() - time_start)))
 print(summary(agg_mcmc_model))
-save(agg_mcmc_model, file = "data/analysis_steps/agg_mcmc_model.RData")
+save(agg_mcmc_model, file = "data/analyses_data/agg_mcmc_model.RData")
 ```
 
 ### Aggression Repeatability
 ```{r aggression_repeatability, results='asis'}
-load("data/analysis_steps/agg_mcmc_model.RData")
+load("data/analyses_data/agg_mcmc_model.RData")
 agg_I_var <- PM_HPD(agg_mcmc_model$VCV[ ,"ID"])
 agg_P_var <- PM_HPD(mcmc(rowSums(agg_mcmc_model$VCV)))
 agg_rep <- agg_I_var / agg_P_var
@@ -295,11 +295,11 @@ agg_mcmc_model_across <- MCMCglmm(misPC1 ~ julian + trial_life +
                            )
 print(paste("Approx. model run time: ", format(Sys.time() - time_start)))
 save(agg_mcmc_model_across,
-  file = "data/analysis_steps/agg_mcmc_model_across.RData")
+  file = "data/analyses_data/agg_mcmc_model_across.RData")
 ```
 
 ```{r agg_across_table, results='asis'}
-load("data/analysis_steps/agg_mcmc_model_across.RData")
+load("data/analyses_data/agg_mcmc_model_across.RData")
 
 agg_I_var_across <- PM_HPD(agg_mcmc_model_across$VCV[ ,"ID"])
 agg_P_var_across <- PM_HPD(mcmc(rowSums(agg_mcmc_model_across$VCV)))
@@ -345,11 +345,11 @@ agg_mcmc_model_within <- MCMCglmm(misPC1 ~ julian + trial_life +
                            )
 print(paste("Approx. model run time: ", format(Sys.time() - time_start)))
 save(agg_mcmc_model_within,
-  file = "data/analysis_steps/agg_mcmc_model_within.RData")
+  file = "data/analyses_data/agg_mcmc_model_within.RData")
 ```
 
 ```{r agg_within.table, results='asis'}
-load("data/analysis_steps/agg_mcmc_model_within.RData")
+load("data/analyses_data/agg_mcmc_model_within.RData")
 
 agg_I_var_within <- PM_HPD(agg_mcmc_model_within$VCV[ ,"ID"])
 agg_P_var_within <- PM_HPD(mcmc(rowSums(agg_mcmc_model_within$VCV)))
@@ -391,12 +391,12 @@ act_mcmc_model <- MCMCglmm(ofPC1 ~ julian + trial_life + I(trial_life^2),
                     )
 print(paste("Approx. model run time: ", format(Sys.time() - time_start)))
 print(summary(act_mcmc_model))
-save(act_mcmc_model, file = "data/analysis_steps/act_mcmc_model.RData")
+save(act_mcmc_model, file = "data/analyses_data/act_mcmc_model.RData")
 ```
 
 ### Activity Repeatability
 ```{r activity_repeatability, results='asis'}
-load("data/analysis_steps/act_mcmc_model.RData")
+load("data/analyses_data/act_mcmc_model.RData")
 act_I_var <- PM_HPD(act_mcmc_model$VCV[ ,"ID"])
 act_P_var <- PM_HPD(mcmc(rowSums(act_mcmc_model$VCV)))
 act_rep <- act_I_var / act_P_var
@@ -439,11 +439,11 @@ act_mcmc_model_across <- MCMCglmm(ofPC1 ~ julian + trial_life +
                            )
 print(paste("Approx. model run time: ", format(Sys.time() - time_start)))
 save(act_mcmc_model_across,
-  file = "data/analysis_steps/act_mcmc_model_across.RData")
+  file = "data/analyses_data/act_mcmc_model_across.RData")
 ```
 
 ```{r act_across_table, results='asis'}
-load("data/analysis_steps/act_mcmc_model_across.RData")
+load("data/analyses_data/act_mcmc_model_across.RData")
 
 act_I_var_across <- PM_HPD(act_mcmc_model_across$VCV[ ,"ID"])
 act_P_var_across <- PM_HPD(mcmc(rowSums(act_mcmc_model_across$VCV)))
@@ -487,11 +487,11 @@ act_mcmc_model_within <- MCMCglmm(ofPC1 ~ julian + trial_life +
                            )
 print(paste("Approx. model run time: ", format(Sys.time() - time_start)))
 save(act_mcmc_model_within,
-  file = "data/analysis_steps/act_mcmc_model_within.RData")
+  file = "data/analyses_data/act_mcmc_model_within.RData")
 ```
 
 ```{r act_within.table, results='asis'}
-load("data/analysis_steps/act_mcmc_model_within.RData")
+load("data/analyses_data/act_mcmc_model_within.RData")
 
 act_I_var_within <- PM_HPD(act_mcmc_model_within$VCV[ ,"ID"])
 act_P_var_within <- PM_HPD(mcmc(rowSums(act_mcmc_model_within$VCV)))
@@ -532,21 +532,21 @@ library(lme4)
 doc_data <- pca_data %>% filter(!is.na(docil))
 doc_lmer_model <- lmer(docil ~ as.factor(Year) + julian + Obs +
   handlevent_year + I(handlevent_year^2) + (1 | ID), data = doc_data)
-save(doc_lmer_model, file = "data/analysis_steps/doc_lmer_model.RData")
+save(doc_lmer_model, file = "data/analyses_data/doc_lmer_model.RData")
 ```
 ### Aggression
 ```{r lmer_agg}
 agg_data <- pca_data %>% filter(!is.na(misPC1))
 agg_lmer_model <- lmer(misPC1 ~  as.factor(Year) + julian + trial_life +
   I(trial_life^2) + (1 | ID), data = agg_data)
-save(agg_lmer_model, file = "data/analysis_steps/agg_lmer_model.RData")
+save(agg_lmer_model, file = "data/analyses_data/agg_lmer_model.RData")
 ```
 ### Activity
 ```{r lmer_act}
 act_data <- pca_data %>% filter(!is.na(ofPC1))
 act_lmer_model <- lmer(ofPC1 ~  as.factor(Year) + julian + trial_life +
   I(trial_life^2) + (1 | ID), data = act_data)
-save(act_lmer_model, file = "data/analysis_steps/act_lmer_model.RData")
+save(act_lmer_model, file = "data/analyses_data/act_lmer_model.RData")
 ```
 ## Extract random effects / BLUPs
 ### from MCMCglmm models
@@ -568,15 +568,15 @@ extractMCMCglmmRanEffs <- function(x, trait_name){
   tbl_df(sols)
 }
 
-load("data/analysis_steps/doc_mcmc_model.RData")
+load("data/analyses_data/doc_mcmc_model.RData")
 doc_mcmc_raneffs <- extractMCMCglmmRanEffs(doc_mcmc_model,
   trait_name = "docility")
 
-load("data/analysis_steps/agg_mcmc_model.RData")
+load("data/analyses_data/agg_mcmc_model.RData")
 agg_mcmc_raneffs <- extractMCMCglmmRanEffs(agg_mcmc_model,
   trait_name = "aggression")
 
-load("data/analysis_steps/act_mcmc_model.RData")
+load("data/analyses_data/act_mcmc_model.RData")
 act_mcmc_raneffs <- extractMCMCglmmRanEffs(act_mcmc_model,
   trait_name = "activity")
 
@@ -588,14 +588,14 @@ mcmc_raneffs <- merge(mcmc_raneffs, act_mcmc_raneffs,
 
 mcmc_raneffs <- tbl_df(mcmc_raneffs)
 
-save(mcmc_raneffs, file = "data/analysis_steps/MCMCraneffs.RData")
+save(mcmc_raneffs, file = "data/analyses_data/MCMCraneffs.RData")
 ```
 
 ### from lmer models
 ```{r extract_lmer}
-load("data/analysis_steps/doc_lmer_model.RData")
-load("data/analysis_steps/agg_lmer_model.RData")
-load("data/analysis_steps/act_lmer_model.RData")
+load("data/analyses_data/doc_lmer_model.RData")
+load("data/analyses_data/agg_lmer_model.RData")
+load("data/analyses_data/act_lmer_model.RData")
 
 extractLmerBLUPs <- function(x, value){
   require(dplyr)
@@ -616,23 +616,23 @@ act_lmer_model.blups <- extractLmerBLUPs(act_lmer_model, "activity")
 lmer_blups <- merge(doc_lmer_model.blups, agg_lmer_model.blups, all = TRUE)
 lmer_blups <- merge(lmer_blups, act_lmer_model.blups, all = TRUE)
 lmer_blups <- tbl_df(lmer_blups)
-save(lmer_blups, file = "data/analysis_steps/lmer_blups.RData")
+save(lmer_blups, file = "data/analyses_data/lmer_blups.RData")
 ```
 
 
 ### rbind MCMC raneffs and BLUPs
 ```{r rbind_mcmc_blups}
-load("data/analysis_steps/MCMCraneffs.RData")
-load("data/analysis_steps/lmer_blups.RData")
+load("data/analyses_data/MCMCraneffs.RData")
+load("data/analyses_data/lmer_blups.RData")
 raneffs_blups <- rbind(mcmc_raneffs, lmer_blups)
 
-save(raneffs_blups, file = "data/analysis_steps/raneffs_blups.RData")
+save(raneffs_blups, file = "data/analyses_data/raneffs_blups.RData")
 ``` 
 
 ## Model Diagnostics
 ### Docility
 ```{r docility_diagnostics, fig.cap=''}
-load("data/analysis_steps/doc_mcmc_model.RData")
+load("data/analyses_data/doc_mcmc_model.RData")
 autocorr.diag(doc_mcmc_model$VCV)
 geweke.diag(doc_mcmc_model$VCV)
 heidel.diag(doc_mcmc_model$VCV)
@@ -641,7 +641,7 @@ plot(doc_mcmc_model$VCV)
 
 ### Aggression
 ```{r aggression_diagnostics, fig.cap=''}
-load("data/analysis_steps/agg_mcmc_model.RData")
+load("data/analyses_data/agg_mcmc_model.RData")
 autocorr.diag(agg_mcmc_model$VCV)
 geweke.diag(agg_mcmc_model$VCV)
 heidel.diag(agg_mcmc_model$VCV)
@@ -650,7 +650,7 @@ plot(agg_mcmc_model$VCV)
 
 ### Activity
 ```{r activity_diagnostics, fig.cap=''}
-load("data/analysis_steps/act_mcmc_model.RData")
+load("data/analyses_data/act_mcmc_model.RData")
 autocorr.diag(act_mcmc_model$VCV)
 geweke.diag(act_mcmc_model$VCV)
 heidel.diag(act_mcmc_model$VCV)

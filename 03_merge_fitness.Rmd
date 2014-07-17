@@ -29,8 +29,8 @@ opts_chunk$set(cache.path='cache/03/')
 library(dplyr)
 library(pander)
 set.alignment('right', row.names = 'left')
-load("data/analysis_steps/raneffs_blups.RData")
-# load("data/analysis_steps/pca.RData")
+load("data/analyses_data/raneffs_blups.RData")
+# load("data/analyses_data/pca.RData")
 fitness <- read.table(file = "data/fitness+competition.csv", sep = ',',
   header = TRUE, stringsAsFactors = FALSE)
 fitness <- tbl_df(fitness)
@@ -47,7 +47,7 @@ fit_raneff_data
 ## Merge fitness with pca & docility repeated mesures data
 
 ```{r merge_repeated}
-load("data/analysis_steps/pca.RData")
+load("data/analyses_data/pca.RData")
 pca_to_merge <- pca_data %>%
   filter(Sex == "F") %>%
   select(ID, Year, Grid, julian, Obs, docility = docil, handlevent_year,
@@ -187,6 +187,6 @@ fit_raneff_data %>%
 ```
 
 ```{r save_data }
-save(fit_raneff_data, file = "data/analysis_steps/fit_raneff_data.RData")
-save(fit_behav_data, file = "data/analysis_steps/fit_behav_data.RData")
+save(fit_raneff_data, file = "data/analyses_data/fit_raneff_data.RData")
+save(fit_behav_data, file = "data/analyses_data/fit_behav_data.RData")
 ```
