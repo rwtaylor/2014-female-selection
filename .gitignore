@@ -11,4 +11,5 @@
 .DS_Store
 
 figure/*
+cache/*
 final_figures
