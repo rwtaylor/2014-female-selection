@@ -23,7 +23,7 @@ opts_chunk$set(cache.path="cache/02/")
 ```
 # Random Effects, BLUPs & Repeatability
 
-```{r load_data2}
+```{r load_data2, cache=FALSE}
 library(pander)
 set.alignment('right', row.names = 'left')
 library(dplyr)
@@ -623,12 +623,34 @@ save(lmer_blups, file = "data/analyses_data/lmer_blups.RData")
 ### rbind MCMC raneffs and BLUPs
 ```{r rbind_mcmc_blups}
 load("data/analyses_data/MCMCraneffs.RData")
-load("data/analyses_data/lmer_blups.RData")
+load("data/analyses_data/doc_lmer_model.RData")
 raneffs_blups <- rbind(mcmc_raneffs, lmer_blups)
 
 save(raneffs_blups, file = "data/analyses_data/raneffs_blups.RData")
 ``` 
+### Rescale docility raneffs & BLUPs
 
+The docility BLUPs can be rescaled to the raw docility measurement. Aggression and activity are based on PCA scores and so are unit/scaleless so no need to rescale.
+
+```{r rescale_docility}
+load("data/analyses_data/raneffs_blups.RData")
+load("data/analyses_data/doc_mcmc_model.RData")
+load("data/analyses_data/doc_lmer_model.RData")
+# The intercepts are nearly indentical, as expected, but we'll keep them 
+# separate for consistency
+lmer_model_intercept <- summary(doc_lmer_model)$coefficients["(Intercept)",
+                                "Estimate"]
+mcmc_model_intercept <-  summary(doc_mcmc_model)$solutions["(Intercept)",
+                                "post.mean"]
+
+raneffs_blups$docility[raneffs_blups$type == "raneff"] <- 
+  raneffs_blups$docility[raneffs_blups$type == "raneff"] + mcmc_model_intercept
+
+raneffs_blups$docility[raneffs_blups$type == "blup"] <- 
+  raneffs_blups$docility[raneffs_blups$type == "blup"] + lmer_model_intercept
+
+save(raneffs_blups, file = "data/analyses_data/raneffs_blups.RData")
+```
 ## Model Diagnostics
 ### Docility
 ```{r docility_diagnostics, fig.cap=''}
