@@ -60,11 +60,12 @@ fit_raneff_data_blup <- filter(fit_raneff_data_blup,
 
 fit_raneff_data_blup$oID <- 1:nrow(fit_raneff_data_blup)
 fit_raneff_data_blup <- droplevels(fit_raneff_data_blup)
+
 ars_year <- glmer(ars_all ~ Year + Grid + activity_s + activity_s:Year +
   aggression_s + aggression_s:Year + docility_s + docility_s:Year +
   (1|ID) + (1|oID), data = fit_raneff_data_blup, family = poisson, 
   control=glmerControl(optimizer="bobyqa"))
-  
+
 save(ars_year, file = "data/analyses_data/ars_year.RData")
 ```
 
@@ -103,10 +104,15 @@ Calculate selection coefficients for each of the 1000 samples of the posterior d
 ```{r sel_grad_mcmc_post}
 # Function to get posterior distribution of selection gradients
 seCoefMCMC <- function(x){
-  mod <- lm(rel_ars ~ aggression_sgy + activity_sgy + docility_sgy, data = x)
+  mod <- lm(rel_ars ~ aggression + activity + docility, data = x)
   res <- as.list(coef(mod)[-1])
   res$Year <- x$Year[1]
   res$itt <- x$itt[1]
+  # Calculate standardized selection gradients
+  res$docility_m    <- res$docility * mean(x$docility, na.rm = TRUE)
+  res$aggression_sd <- res$aggression * sd(x$aggression, na.rm = TRUE)
+  res$activity_sd   <- res$activity * sd(x$activity, na.rm = TRUE)
+  res$docility_sd   <- res$docility * sd(x$docility, na.rm = TRUE)
   return(data.frame(res, stringsAsFactors = FALSE))
 }
 
@@ -116,8 +122,6 @@ sel_grads_mcmc_post <- fit_raneff_data %>%
   group_by(itt, Year, add = FALSE) %>%
   do(seCoefMCMC(.))
 print(paste("Approx. run time: ", format(Sys.time() - start_time)))
-
-sel_grads_mcmc_post <- tbl_df(sel_grads_mcmc_post)
 
 save(sel_grads_mcmc_post,
   file = "data/analyses_data/sel_grads_mcmc_post.RData")
@@ -131,18 +135,19 @@ getCred <- function(x, sig = 0.05){
   require(MCMCglmm)
   mcmc_data <- x %>%
     ungroup() %>%
-    select(aggression_sgy, activity_sgy, docility_sgy) %>%
+    select(aggression, activity, docility, docility_m, aggression_sd,
+      activity_sd, docility_sd) %>%
     mcmc(.)
   pm  <- posterior.mode(mcmc_data)
   int <- HPDinterval(mcmc_data, prob = 1 - sig)
-  prb <- 2*(rowSums(sign(t(mcmc_data)) != sign(pm)) / 1000)
   tbl_df(data.frame(
     Year      = x$Year[1],
-    variable  = c("Aggression", "Activity", "Docility"),
+    variable  = c("Aggression", "Activity", "Docility", "Docility",
+     "Aggression", "Activity", "Docility"),
+     standardization = c("None", "None", "None", "Mean", "SD", "SD", "SD"),
     post_mode = pm,
     lower     = int[ ,"lower"],
     upper     = int[ ,"upper"],
-    prb = prb,
     stringsAsFactors = FALSE
     ))
 }
@@ -177,14 +182,19 @@ sgt$lower     <- format(round(sgt$lower,     digits = 2), digits = 1,
   nsmall = 2)
 sgt$upper     <- format(round(sgt$upper,     digits = 2), digits = 1,
   nsmall = 2)
-sgt$prb       <- format(round(sgt$prb,       digits = 2), digits = 1,
-  nsmall = 2)
 sgt$coef      <- paste(sgt$post_mode, " (", sgt$lower, " to ", sgt$upper,")",
   sgt$sig_star, sep = '')
 
-sgt_agg <- filter(sgt, variable == "Aggression")
-sgt_act <- filter(sgt, variable == "Activity")
-sgt_doc <- filter(sgt, variable == "Docility")
+sgt_agg <- filter(sgt, variable == "Aggression", standardization == "SD")
+sgt_act <- filter(sgt, variable == "Activity", standardization == "SD")
+sgt_doc <- filter(sgt, variable == "Docility", standardization == "SD")
+
+sgt_ns_agg <- filter(sgt, variable == "Aggression", standardization == "None")
+sgt_ns_act <- filter(sgt, variable == "Activity", standardization == "None")
+sgt_ns_doc <- filter(sgt, variable == "Docility", standardization == "None")
+
+sgt_m_doc <- filter(sgt, variable == "Docility", standardization == "Mean")
+
 N <- fit_raneff_data %>%
   filter(type == "blup") %>%
   group_by(Year, add = FALSE) %>%
@@ -194,7 +204,20 @@ pandoc.table(
   data.frame(Year = N$Year, N = N[ ,2], Aggression = sgt_agg$coef,
     Acitivity = sgt_act$coef, Docility = sgt_doc$coef
   ),
-  caption = "Selection Gradients (accounting for behavioural uncertainty)."
+  caption = "Variance standardized selection gradients (accounting for behavioural uncertainty)."
+  )
+
+pandoc.table(
+  data.frame(Year = N$Year, N = N[ ,2], Docility = sgt_m_doc$coef
+  ),
+  caption = "Mean standardized selection gradients (accounting for behavioural uncertainty)."
+  )
+
+pandoc.table(
+  data.frame(Year = N$Year, N = N[ ,2], Aggression = sgt_ns_agg$coef,
+    Acitivity = sgt_ns_act$coef, Docility = sgt_ns_doc$coef
+  ),
+  caption = "Non-standardized selection gradients (accounting for behavioural uncertainty)."
   )
 ```
 
