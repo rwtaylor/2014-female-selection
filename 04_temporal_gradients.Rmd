@@ -237,7 +237,7 @@ sel_grads_mcmc$upper_sig_star[sel_grads_mcmc$post_mode > 0 &
 sel_grads_mcmc$lower_sig_star[sel_grads_mcmc$post_mode < 0 &
   sel_grads_mcmc$upper < 0] <- "*"
 
-p <- ggplot(data = sel_grads_mcmc,
+p <- ggplot(data = filter(sel_grads_mcmc, standardization == "SD"),
   aes(x = Year, y = post_mode, group = variable)
 )
 p <- p + geom_hline(yintercept = 0, size = 0.25) # Line at y = 0
@@ -282,15 +282,24 @@ p_sel_grad_MCMC
 
 ```{r sg_cors_mcmc, fig.width=5, fig.height=5}
 sel_grads_mcmc_flat <- data.frame(
-  Aggression = filter(sel_grads_mcmc, variable == "Aggression")$post_mode,
-  Agg_upper  = filter(sel_grads_mcmc, variable == "Aggression")$upper,
-  Agg_lower  = filter(sel_grads_mcmc, variable == "Aggression")$lower,
-  Activity   = filter(sel_grads_mcmc, variable == "Activity")$post_mode,
-  Act_upper  = filter(sel_grads_mcmc, variable == "Activity")$upper,
-  Act_lower  = filter(sel_grads_mcmc, variable == "Activity")$lower,
-  Docility   = filter(sel_grads_mcmc, variable == "Docility")$post_mode,
-  Doc_upper  = filter(sel_grads_mcmc, variable == "Docility")$upper,
-  Doc_lower  = filter(sel_grads_mcmc, variable == "Docility")$lower
+  Aggression = filter(sel_grads_mcmc, standardization == "SD",
+   variable == "Aggression")$post_mode,
+  Agg_upper  = filter(sel_grads_mcmc, standardization == "SD",
+   variable == "Aggression")$upper,
+  Agg_lower  = filter(sel_grads_mcmc, standardization == "SD",
+   variable == "Aggression")$lower,
+  Activity   = filter(sel_grads_mcmc, standardization == "SD",
+   variable == "Activity")$post_mode,
+  Act_upper  = filter(sel_grads_mcmc, standardization == "SD",
+   variable == "Activity")$upper,
+  Act_lower  = filter(sel_grads_mcmc, standardization == "SD",
+   variable == "Activity")$lower,
+  Docility   = filter(sel_grads_mcmc, standardization == "SD",
+   variable == "Docility")$post_mode,
+  Doc_upper  = filter(sel_grads_mcmc, standardization == "SD",
+   variable == "Docility")$upper,
+  Doc_lower  = filter(sel_grads_mcmc, standardization == "SD",
+   variable == "Docility")$lower
 )
 
 cor.behav <- function(x, y){
