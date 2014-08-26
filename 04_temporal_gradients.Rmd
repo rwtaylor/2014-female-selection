@@ -222,7 +222,7 @@ pandoc.table(
 ```
 
 ### Plots
-```{r sel_grads_mcmc_plot}
+```{r sel_grads_mcmc_plot_SD, fig.cap="SD Standardized Selection Gradients"}
 load("data/analyses_data/sel_grads_mcmc_post.RData")
 library(ggplot2)
 library(dplyr)
@@ -271,7 +271,117 @@ p <- p + geom_text(aes(x = Year, y = lower, group = variable,
   position = position_dodge(width = 0.5), size = 5)
 p_sel_grad_MCMC <- p + ylim(c(-1.1,1.4))
 
-pdf(file = "figure/sel_grads_mcmc_plot.pdf", width = 4.33, height = 3)
+pdf(file = "figure/sel_grads_mcmc_plot_SD.pdf", width = 4.33, height = 3)
+p_sel_grad_MCMC
+dev.off()
+p_sel_grad_MCMC
+```
+
+```{r sel_grads_mcmc_plot_NoS, fig.cap="Non-standardized Selection Gradients"}
+load("data/analyses_data/sel_grads_mcmc_post.RData")
+library(ggplot2)
+library(dplyr)
+
+sel_grads_mcmc <- sel_grads_mcmc_post %>%
+  group_by(Year, add = FALSE) %>% do(getCred(x = ., sig = 0.05))
+
+sel_grads_mcmc$upper_sig_star <- ""
+sel_grads_mcmc$lower_sig_star <- ""
+sel_grads_mcmc$upper_sig_star[sel_grads_mcmc$post_mode > 0 &
+  sel_grads_mcmc$lower > 0] <- "*"
+sel_grads_mcmc$lower_sig_star[sel_grads_mcmc$post_mode < 0 &
+  sel_grads_mcmc$upper < 0] <- "*"
+
+p <- ggplot(data = filter(sel_grads_mcmc, standardization == "None"),
+  aes(x = Year, y = post_mode, group = variable)
+)
+p <- p + geom_hline(yintercept = 0, size = 0.25) # Line at y = 0
+p <- p + geom_errorbar(aes(ymax = upper, ymin = lower),
+  position = position_dodge(width = 0.5), width = 0.4, size = 0.4)
+# Houle data percentiles
+p <- p + geom_hline(yintercept = c(0.2975, -0.2975), linetype = 2, size = 0.4)
+p <- p + geom_point(aes(shape = variable, fill = variable),
+  position = position_dodge(width = 0.5), size = 3)
+p <- p + scale_shape_manual(name = "B", values = c(24, 21, 22))
+p <- p + scale_fill_manual(name = "B", values = c("white", "black", "white"))
+p <- p + scale_color_manual(name = "B", values = c("black", "black", "black"))
+p <- p + xlab("Year") 
+p <- p + ylab("Posterior Mode ± 0.95 Credible Interval")
+p <- p + theme_bw(base_size = 10)
+p <- p + theme(legend.position = c(0.92, 0.86),
+  legend.background = element_blank(), legend.key.size = unit(0.4, "cm"))
+p <- p + theme(legend.title = element_text(family = "Helvetica",
+                                 face = "plain", size = 18))
+p <- p + theme(legend.key = element_blank())
+p <- p + theme(strip.background = element_blank())
+p <- p + theme(panel.grid.minor = element_blank(),
+  panel.grid.major = element_blank())
+p <- p + theme(panel.border = element_blank())
+p <- p + theme(axis.line = element_line(color = "black"))
+p <- p + geom_text(aes(x = Year, y = upper, group = variable,
+  label = upper_sig_star), vjust = -0.3,
+  position = position_dodge(width = 0.5), size = 5)
+p <- p + geom_text(aes(x = Year, y = lower, group = variable,
+  label = lower_sig_star), vjust = 1.3,
+  position = position_dodge(width = 0.5), size = 5)
+p_sel_grad_MCMC <- p + ylim(c(-1.1,1.4))
+
+pdf(file = "figure/sel_grads_mcmc_plot_none.pdf", width = 4.33, height = 3)
+p_sel_grad_MCMC
+dev.off()
+p_sel_grad_MCMC
+```
+
+```{r sel_grads_mcmc_plot_Mean, fig.cap="Mean Standardized Selection Gradients"}
+load("data/analyses_data/sel_grads_mcmc_post.RData")
+library(ggplot2)
+library(dplyr)
+
+sel_grads_mcmc <- sel_grads_mcmc_post %>%
+  group_by(Year, add = FALSE) %>% do(getCred(x = ., sig = 0.05))
+
+sel_grads_mcmc$upper_sig_star <- ""
+sel_grads_mcmc$lower_sig_star <- ""
+sel_grads_mcmc$upper_sig_star[sel_grads_mcmc$post_mode > 0 &
+  sel_grads_mcmc$lower > 0] <- "*"
+sel_grads_mcmc$lower_sig_star[sel_grads_mcmc$post_mode < 0 &
+  sel_grads_mcmc$upper < 0] <- "*"
+
+p <- ggplot(data = filter(sel_grads_mcmc, standardization == "Mean"),
+  aes(x = Year, y = post_mode, group = variable)
+)
+p <- p + geom_hline(yintercept = 0, size = 0.25) # Line at y = 0
+p <- p + geom_errorbar(aes(ymax = upper, ymin = lower),
+  position = position_dodge(width = 0.5), width = 0.4, size = 0.4)
+# Houle data percentiles
+p <- p + geom_hline(yintercept = c(0.2975, -0.2975), linetype = 2, size = 0.4)
+p <- p + geom_point(aes(shape = variable, fill = variable),
+  position = position_dodge(width = 0.5), size = 3)
+p <- p + scale_shape_manual(name = "B", values = c(24, 21, 22))
+p <- p + scale_fill_manual(name = "B", values = c("white", "black", "white"))
+p <- p + scale_color_manual(name = "B", values = c("black", "black", "black"))
+p <- p + xlab("Year") 
+p <- p + ylab("Posterior Mode ± 0.95 Credible Interval")
+p <- p + theme_bw(base_size = 10)
+p <- p + theme(legend.position = c(0.92, 0.86),
+  legend.background = element_blank(), legend.key.size = unit(0.4, "cm"))
+p <- p + theme(legend.title = element_text(family = "Helvetica",
+                                 face = "plain", size = 18))
+p <- p + theme(legend.key = element_blank())
+p <- p + theme(strip.background = element_blank())
+p <- p + theme(panel.grid.minor = element_blank(),
+  panel.grid.major = element_blank())
+p <- p + theme(panel.border = element_blank())
+p <- p + theme(axis.line = element_line(color = "black"))
+p <- p + geom_text(aes(x = Year, y = upper, group = variable,
+  label = upper_sig_star), vjust = -0.3,
+  position = position_dodge(width = 0.5), size = 5)
+p <- p + geom_text(aes(x = Year, y = lower, group = variable,
+  label = lower_sig_star), vjust = 1.3,
+  position = position_dodge(width = 0.5), size = 5)
+p_sel_grad_MCMC <- p + ylim(c(-1.1,1.4))
+
+pdf(file = "figure/sel_grads_mcmc_plot_mean.pdf", width = 4.33, height = 3)
 p_sel_grad_MCMC
 dev.off()
 p_sel_grad_MCMC
