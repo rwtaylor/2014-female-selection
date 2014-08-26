@@ -33,12 +33,15 @@ To evaluate the appropriateness of this analyses we will follow Budaev's advice 
 
 ```{r pca-data}
 library(foreach)
+library(doMC)
+registerDoMC()
 library(tidyr)
 library(dplyr)
 library(pander)
 set.alignment('right', row.names = 'left')
 library(mvnormtest)
 library(psych)
+library(ggplot2)
 behav_data <- tbl_df(read.table(file = "data/behaviour.csv",
                                 sep = ',',
                                 header = TRUE,
@@ -57,7 +60,7 @@ mis_data <-  behav_data %>%
   filter(!is.na(front))
     
 # Get only complete records of the MIS behaviours
-mis_sub_data <- foreach(i = 1:100, .combine = 'rbind') %do% {
+mis_sub_data <- foreach(i = 1:100, .combine = 'rbind') %dopar% {
   mis_data %>%
   group_by(ID) %>%
   do(sample_n(., 1)) %>%
@@ -90,7 +93,6 @@ p <- ggplot(mis_KMO_Bart, aes(x = cortest.bartlett))
 p <- p + geom_histogram(binwidth = 10)
 p <- p + ggtitle("Bootstrapped cortest.bartlett chi-sq values")
 p + xlim(c(0,1000)) + xlab("chi-square (deg. free = 10)")
-
 ```
 
 The overall measure of sampling adequecy is fine (Measure of Sampling Adequacy = `r mean(mis_KMO_Bart$KMO_MSA)`). Bartletts test unsurprisingly rejects the hypotheses that all correlations are zero (P = 0).
@@ -117,7 +119,7 @@ mis_pca <- foreach(i = 1:100, .combine = rbind) %do% {
   pc_loadings
 }
 
-mis_pca <- gather(data.frame(mis_pca), key = "trait", value = "loading")
+mis_pca <- gather(data.frame(mis_pca), front, attack_rate, back, ln_attack_latency, ln_approach_latency, key = "trait", value = "loading")
 
 # Calculate PCA for full dataset
 mis_pca_full <- prcomp(mis_data[-c(1,2, 8)], scale = TRUE)
@@ -168,7 +170,7 @@ of_data <- behav_data %>%
               groom, walk, fecal) %>%
              filter(!is.na(hole_rate))
 
-of_sub_data <- foreach(i = 1:100, .combine = 'rbind') %do% {
+of_sub_data <- foreach(i = 1:100, .combine = 'rbind') %dopar% {
   of_data %>%
   group_by(ID) %>%
   do(sample_n(., 1)) %>%
@@ -217,7 +219,7 @@ kmo_of <- foreach(i = 1:100, .combine = 'rbind') %do% {
 kmo_of <- tbl_df(data.frame(kmo_of))
 library(MCMCglmm)
 
-p <- ggplot(gather(kmo_of, key = "behav", value = "KMO"), aes(x = KMO))
+p <- ggplot(gather(kmo_of, hole_rate, jump_rate, chew, still, hang, groom, walk, fecal, key = "behav", value = "KMO"), aes(x = KMO))
 p <- p + facet_wrap( ~ behav) + geom_histogram(binwidth = 0.02) + xlim(c(0,1))
 p + geom_vline(xintercept = 0.7, color = 'red')
 ```
@@ -245,7 +247,7 @@ of_pca <- foreach(i = 1:100, .combine = rbind) %do% {
   if(sign(pc_loadings["still"]) == 1) {pc_loadings <- pc_loadings * -1}
 }
 
-of_pca <- gather(data.frame(of_pca), key = "trait", value = "loading")
+of_pca <- gather(data.frame(of_pca), hole_rate, jump_rate, chew, still, hang, groom, walk, fecal, key = "trait", value = "loading")
 
 # Calculate PCA for full dataset
 of_pca_full <- prcomp(of_data[-c(1,2,11)], scale = TRUE)

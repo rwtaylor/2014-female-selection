@@ -22,4 +22,3 @@ knitr::pandoc('05_competition.md')
 system("pandoc --default-image-extension=png --template=templates/html.template --toc --toc-depth=4  -f markdown -t html -o 00_all_analyses.html *.md")
 
 system("pandoc --default-image-extension=pdf --template=templates/latex.template --toc --toc-depth=4 -s -S --latex-engine=xelatex  -f markdown -t latex -o 00_all_analyses.pdf *.md")
-
