@@ -182,7 +182,7 @@ save(of_data, of_sub_data, file = "data/analyses_data/of_sub_data.RData")
 ### Bartlett's test & KMO
 
 ```{r of_bartlett}
-load("data/analyses_data/of_sub_data")
+load("data/analyses_data/of_sub_data.RData")
 library(psych)
 n_trials <- of_data %>% summarise(n = n())
 of_KMO_Bart <- of_sub_data %>%
@@ -211,7 +211,7 @@ Lets take a closer look at the KMO test.
 
 
 ```{r closer_look_KMO}
-load("data/analyses_data/of_sub_data")
+load("data/analyses_data/of_sub_data.RData")
 kmo_of <- foreach(i = 1:100, .combine = 'rbind') %do% {
   foo <- of_sub_data %>% ungroup() %>% filter(itt == i)
   KMO(foo[ ,c(-1,-2,-11)])$MSAi
@@ -229,7 +229,7 @@ Looks like the low overall KMO index is driven by grooming and hanging. Both of 
 ### Multivariate normality
 
 ```{r of_multiNormality}
-load("data/analyses_data/of_sub_data")
+load("data/analyses_data/of_sub_data.RData")
 of_one <- of_sub_data %>% filter(itt == 1)
 mshapiro.test(t(as.matrix(of_one[-c(1,2,11)])))
 ```
@@ -239,7 +239,7 @@ The open field data are also not multi-normal (P = `r mshapiro.test(t(as.matrix(
 Because our data contains multiple records per individual we will check to be sure pesudo-replication isn't having a large effect on the PCA loadings.
 
 ```{r ofPCA}
-load("data/analyses_data/of_sub_data")
+load("data/analyses_data/of_sub_data.RData")
 # Calculate PCA for subsampled data
 of_pca <- foreach(i = 1:100, .combine = rbind) %do% {
   foo <- of_sub_data %>% filter(itt == i)
@@ -267,7 +267,7 @@ p + geom_vline(data = of_pca_loadings, aes(xintercept = loading), color = 'red')
 Once again the loadings for PC 1 are spot on the modes of the bootstrap distribution. So we will continue with the loadings from the full dataset so that they are consistent with Taylor et al. 2012. Interestingly, hang and groom have the largest bootstrap variance, and these were the triats identified by the KMO test as not being sampled adequately.
 
 ```{r OF_PCA}
-load("data/analyses_data/of_sub_data")
+load("data/analyses_data/of_sub_data.RData")
 of_pca_full <- prcomp(of_data[-c(1,2,11)], scale = TRUE)
 #  If the pc coefficient for still is positive, then reverse sign of PC scores
 #  so that high PC1 is more active.
