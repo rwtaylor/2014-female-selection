@@ -122,30 +122,24 @@ doc_data_across <- doc_data %>%
   dplyr:::sample_n.grouped_df(1)
 
 # Run model again
+
+prior <- list(
+  G = list(G1 = list(V = var(doc_data_across$docil, na.rm = TRUE), nu = 1.002)),
+  R = list(V = var(doc_data_across$docil, na.rm = TRUE), nu = 1.002)
+  )
 prior <- list(
   G = list(G1 = list(V = var(doc_data_across$docil, na.rm = TRUE), nu = 1.002)),
   R = list(V = var(doc_data_across$docil, na.rm = TRUE), nu = 1.002)
 )
 
 time_start <- Sys.time()
-ax <- MCMCglmm(docil ~ julian + Obs + handlevent_year +
-                            I(handlevent_year^2),
-                     random = ~ ID,
-                     prior = prior,
-                     pr = TRUE,
-                     data = doc_data_across,
-                     thin = thin,
-                     burnin = burnin,
-                     nitt = nitt,
-                     verbose = FALSE
-                     )
 
 doc_mcmc_model_across <- MCMCglmm(docil ~ julian + Obs + handlevent_year + 
                                     I(handlevent_year^2),
                             random = ~ ID,
                             prior = prior,
                             pr = TRUE,
-                            data = doc_data_across,
+                            data = ungroup(doc_data_across),
                             thin = thin,
                             burnin = burnin,
                             nitt = nitt,
@@ -205,7 +199,7 @@ doc_mcmc_model_within <- MCMCglmm(docil ~ julian + Obs + handlevent_year +
                           random = ~ ID,
                           prior = prior,
                           pr = TRUE,
-                          data = doc_data_within,
+                          data = ungroup(doc_data_within),
                           thin = thin,
                           burnin = burnin,
                           nitt = nitt,
@@ -252,7 +246,7 @@ agg_mcmc_model <- MCMCglmm(misPC1 ~ julian + trial_life + I(trial_life^2),
                     random = ~ ID,
                     prior = prior,
                     pr = TRUE,
-                    data = agg_data,
+                    data = ungroup(agg_data),
                     thin = thin,
                     burnin = burnin,
                     nitt = nitt,
@@ -302,7 +296,7 @@ agg_mcmc_model_across <- MCMCglmm(misPC1 ~ julian + trial_life +
                            random = ~ ID,
                            prior = prior,
                            pr = TRUE,
-                           data = agg_data_across,
+                           data = ungroup(agg_data_across),
                            thin = thin,
                            burnin = burnin,
                            nitt = nitt,
@@ -352,7 +346,7 @@ agg_mcmc_model_within <- MCMCglmm(misPC1 ~ julian + trial_life +
                            random = ~ ID,
                            prior = prior,
                            pr = TRUE,
-                           data = agg_data_within,
+                           data = ungroup(agg_data_within),
                            thin = thin,
                            burnin = burnin,
                            nitt = nitt,
@@ -398,7 +392,7 @@ act_mcmc_model <- MCMCglmm(ofPC1 ~ julian + trial_life + I(trial_life^2),
                     random = ~ ID,
                     prior = prior,
                     pr = TRUE,
-                    data = act_data,
+                    data = ungroup(act_data),
                     thin = thin,
                     burnin = burnin,
                     nitt = nitt,
@@ -446,7 +440,7 @@ act_mcmc_model_across <- MCMCglmm(ofPC1 ~ julian + trial_life +
                            random = ~ ID,
                            prior = prior,
                            pr = TRUE,
-                           data = act_data_across,
+                           data = ungroup(act_data_across),
                            thin = thin,
                            burnin = burnin,
                            nitt = nitt,
@@ -494,7 +488,7 @@ act_mcmc_model_within <- MCMCglmm(ofPC1 ~ julian + trial_life +
                            random = ~ ID,
                            prior = prior,
                            pr = TRUE,
-                           data = act_data_within,
+                           data = ungroup(act_data_within),
                            thin = thin,
                            burnin = burnin,
                            nitt = nitt,
@@ -539,7 +533,7 @@ pandoc.table(table_summary, caption = "Summary of repeatabilities")
 ```
 
 ## Run lmer models
-```{r }
+```{r load_lmer}
 library(lme4)
 ```
 ### Docility
