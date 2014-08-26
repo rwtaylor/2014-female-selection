@@ -1,4 +1,4 @@
-"ID","Sex","Grid","Year","julian","trial_id","Obs","docil","handlevent_year","Study","front","attack_rate","back","ln_attack.latency","ln_approach.latency","hole_rate","jump_rate","chew","still","hang","groom","walk","fecal","trial_life","trial_year"
+"ID","Sex","Grid","Year","julian","trial_id","Obs","docil","handlevent_year","Study","front","attack_rate","back","ln_attack_latency","ln_approach_latency","hole_rate","jump_rate","chew","still","hang","groom","walk","fecal","trial_life","trial_year"
 4,"F","SU","2005",177,NA,"MRG",28,12,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA
 601,"M","AG","2005",165,NA,"CLS",15,9,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA,NA
 601,"M","AG","2005",182,"0.44270.2005.182","ADI",17,10,"AKB",1.02,0,20.2,2.47712125471966,2.37683234929081,0.67,1.07,0,56.62,2.32,2.26,9.36,7,1,1
