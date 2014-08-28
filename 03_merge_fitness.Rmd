@@ -96,7 +96,6 @@ Now:
 Standaradized to mean 0 and sd 1. Standardized variables renamed from xxx to xxx_s or xxx_sy (for standardized within year). Standardized within each BLUP itteration.
 
 ```{r standardize-traits}
-
 # Standardize within itteration and year
 fit_raneff_data <- fit_raneff_data %>%
   group_by(itt, Year, add = FALSE) %>%
@@ -161,16 +160,16 @@ fit_raneff_data$docility_sy[is.na(fit_raneff_data$docility_sy)]     <- 0
 fit_raneff_data <- fit_raneff_data %>%
 group_by(itt, Year, add = FALSE) %>%
 mutate(
-  aggression_fm = ifelse(
+  aggression_f = ifelse(
     is.na(aggression),
     mean(aggression, na.rm = TRUE),
     aggression),
-  activity_fm = ifelse(
+  activity_f = ifelse(
     is.na(activity),
     mean(activity, na.rm = TRUE),
     activity)
     ,
-  docility_fm = ifelse(
+  docility_f = ifelse(
     is.na(docility),
     mean(docility, na.rm = TRUE),
     docility)

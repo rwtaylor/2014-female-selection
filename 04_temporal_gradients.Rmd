@@ -106,13 +106,13 @@ Calculate selection coefficients for each of the 1000 samples of the posterior d
 # Function to get posterior distribution of selection gradients
 x <- fit_raneff_data %>% filter(type == "raneff" & Year == 2003 & itt == 1)
 seCoefMCMC <- function(x){
-  mod <- lm(rel_ars ~ aggression_m + activity_m + docility_m, data = x)
+  mod <- lm(rel_ars ~ aggression_f + activity_f + docility_f, data = x)
   mod.sd <-  lm(rel_ars ~ aggression_sy + activity_sy + docility_sy, data = x)
   res <- c(as.list(coef(mod)[-1]), as.list(coef(mod.sd)[-1]))
   res$Year <- x$Year[1]
   res$itt <- x$itt[1]
   # Calculate standardized selection gradients
-  res$docility_m    <- res$docility_m * mean(x$docility, na.rm = TRUE)
+  res$docility_m    <- res$docility_f * mean(x$docility, na.rm = TRUE)
   return(data.frame(res, stringsAsFactors = FALSE))
 }
 
@@ -133,7 +133,7 @@ load("data/analyses_data/sel_grads_mcmc_post.RData")
 library(MCMCglmm)
 getCred <- function(x, sig = 0.05){
   require(MCMCglmm)
-  mcmc_data <- x %>% ungroup() %>% select(aggression, activity, docility, aggression_sy, activity_sy, docility_sy, docility_m) %>% mcmc(.)
+  mcmc_data <- x %>% ungroup() %>% select(aggression_fm, activity_fm, docility_fm, aggression_sy, activity_sy, docility_sy, docility_m) %>% mcmc(.)
   pm  <- posterior.mode(mcmc_data)
   int <- HPDinterval(mcmc_data, prob = 1 - sig)
   tbl_df(data.frame(
@@ -529,7 +529,7 @@ Calculate selection gradients from BLUPs, estimate SE using jackknifing.
 
 ```{r seCoeff}
 # Calculate standardized selection gradients
-res$docility_m    <- coefs["docility"] * mean(x$docility, na.rm = TRUE)
+res$docility_fm    <- coefs["docility"] * mean(x$docility, na.rm = TRUE)
 res$aggression_sd <- coefs["aggression"] * sd(x$aggression, na.rm = TRUE)
 res$activity_sd   <- coefs["activity"] * sd(x$activity, na.rm = TRUE)
 res$docility_sd   <- coefs["docility"] * sd(x$docility, na.rm = TRUE)
@@ -541,8 +541,8 @@ x <- fit_raneff_data %>% filter(type == "blup" & Year == 2003)
 # But how to do for docility mean standardized?
 # Don't report confidence intervals?
 seCoeffLmer <- function(x){
-  model <- lm(rel_ars ~ aggression_m + activity_m + docility_m, data = x)
-  model <- lm(rel_ars ~ aggression_m + activity_m + docility_m, data = x)
+  model <- lm(rel_ars ~ aggression_fm + activity_fm + docility_fm, data = x)
+  model <- lm(rel_ars ~ aggression_fm + activity_fm + docility_fm, data = x)
   mod.coefs <- coef(model)[-1]
   sim.coefs <- data.frame(coef(sim(model))[ ,-1]) ## Simulated coefficients for calculating uncertainty.
   names(sim.coefs) <- names(mod.coefs)
