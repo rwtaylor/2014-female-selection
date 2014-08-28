@@ -175,8 +175,8 @@ N <- fit_raneff_data %>%
 # Format for table
 sgt <- sel_grads_mcmc
 sgt$sig_star <- ""
-sgt$sig_star[sel_grads_mcmc$post_mode > 0 & sel_grads_mcmc$lower > 0] <- "*"
-sgt$sig_star[sel_grads_mcmc$post_mode < 0 & sel_grads_mcmc$upper < 0] <- "*"
+sgt$sig_star[sgt$post_mode > 0 & sgt$lower > 0] <- "*"
+sgt$sig_star[sgt$post_mode < 0 & sgt$upper < 0] <- "*"
 sgt$post_mode <- format(round(sgt$post_mode, digits = 2), digits = 1,
   nsmall = 2)
 sgt$lower     <- format(round(sgt$lower,     digits = 2), digits = 1,
@@ -511,8 +511,8 @@ load("data/analyses_data/sel_grads_blup.RData")
 # Format for table
 sgt <- sel_grads_blup
 sgt$sig_star <- ""
-sgt$sig_star[sel_grads_mcmc$coefficients > 0 & sel_grads_mcmc$lower > 0] <- "*"
-sgt$sig_star[sel_grads_mcmc$coefficients < 0 & sel_grads_mcmc$upper < 0] <- "*"
+sgt$sig_star[sgt$coefficients > 0 & sgt$lower > 0] <- "*"
+sgt$sig_star[sgt$coefficients < 0 & sgt$upper < 0] <- "*"
 sgt$coefficients <- format(round(sgt$coefficients, digits = 2),
   digits = 1, nsmall = 2)
 sgt$lower <- format(round(sgt$lower, digits = 2),
@@ -726,6 +726,7 @@ p + theme(plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm"))
 ### Summary Statistics
 ```{r summary_blup, results='asis'}
 sum_stats_blup <- sel_grads_blup %>%
+filter(standardization == "SD") %>%
 group_by(variable, add = FALSE) %>%
 summarise(
   mean_abs_b = mean(abs(coefficients)),
@@ -745,9 +746,13 @@ pandoc.table(sum_stats_blup)
 ```{r compare, results='asis'}
 load("data/analyses_data/sel_grads_blup.RData")
 load("data/analyses_data/sel_grads_mcmc.RData")
-compare_grads <- left_join(select(sel_grads_blup, Year, variable,
+
+sg_blups <- sel_grads_blup %>% filter(standardization == "SD")
+sg_mcmc <- sel_grads_mcmc %>% filter(standardization == "SD")
+
+compare_grads <- left_join(select(sg_blups, Year, variable,
   blup_coef = coefficients, blup_upper = upper, blup_lower = lower),
-  select(sel_grads_mcmc, Year, variable, mcmc_pm = post_mode,
+  select(sg_mcmc, Year, variable, mcmc_pm = post_mode,
     mcmc_upper = upper, mcmc_lower = lower), by = c("variable", "Year"))
 
 ct_print <- function(x,y){
@@ -771,7 +776,7 @@ pandoc.table(c_table)
 
 ### Aggression plot
 ```{r compare_agg, fig.height=2.3, fig.width=2.17}
-p <- ggplot(filter(compare_grads, variable == "Aggression"),
+p <- ggplot(filter(compare_grads, standardization == "SD" & variable == "Aggression"),
   aes(x = blup_coef, y = mcmc_pm))
 p <- p + geom_point()
 p <- p + geom_errorbarh(aes(xmin = blup_lower, xmax = blup_upper),
@@ -797,7 +802,7 @@ p + theme(plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm"))
 
 ### Activity Plot
 ```{r compare_act, fig.height=2.3, fig.width=2.17}
-p <- ggplot(filter(compare_grads, variable == "Activity"),
+p <- ggplot(filter(compare_grads, standardization == "SD" & variable == "Activity"),
   aes(x = blup_coef, y = mcmc_pm))
 p <- p + geom_point()
 p <- p + geom_errorbarh(aes(xmin = blup_lower, xmax = blup_upper),
@@ -823,7 +828,7 @@ p + theme(plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm"))
 
 ### Docility Plot
 ```{r compare_doc, fig.height=2.3, fig.width=2.17}
-p <- ggplot(filter(compare_grads, variable == "Docility"),
+p <- ggplot(filter(compare_grads, standardization == "SD" & variable == "Docility"),
   aes(x = blup_coef, y = mcmc_pm))
 p <- p + geom_point()
 p <- p + geom_errorbarh(aes(xmin = blup_lower, xmax = blup_upper),
