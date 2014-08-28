@@ -93,12 +93,24 @@ Now:
 * felOWS = relative offspring overwinter survival
 
 ## Standardize Variables
-Standaradized to mean 0 and sd 1. Standardized variables renamed from xxx to xxx_s or xxx_sgy (for standardized within grid year). Standardized within each BLUP itteration.
+Standaradized to mean 0 and sd 1. Standardized variables renamed from xxx to xxx_s or xxx_sy (for standardized within year). Standardized within each BLUP itteration.
 
 ```{r standardize-traits}
-## Will stadardize within "itteration".
 
-# Standardize within itteration for glm analyses
+# Standardize within itteration and year
+fit_raneff_data <- fit_raneff_data %>%
+  group_by(itt, Year, add = FALSE) %>%
+  mutate(
+    aggression_sy  = (aggression  - mean(aggression, na.rm = TRUE))  /
+      sd(aggression, na.rm = TRUE),
+    activity_sy    = (activity    - mean(activity, na.rm = TRUE))    /
+      sd(activity, na.rm = TRUE),
+    docility_sy    = (docility    - mean(docility, na.rm = TRUE))    /
+      sd(docility, na.rm = TRUE),
+    competition_sy = (competition - mean(competition, na.rm = TRUE)) /
+      sd(competition, na.rm = TRUE)
+      )
+# Standardize within itteration
 fit_raneff_data <- fit_raneff_data %>%
   group_by(itt, add = FALSE) %>%
   mutate(
@@ -111,32 +123,6 @@ fit_raneff_data <- fit_raneff_data %>%
     competition_s = (competition - mean(competition, na.rm = TRUE)) /
       sd(competition, na.rm = TRUE)
       )
-
-# Standardize within itteration and grid-year for selection gradients
-fit_raneff_data <- fit_raneff_data %>%
-  group_by(itt, Year, Grid, add = FALSE) %>%
-  mutate(
-    aggression_sgy = (aggression - mean(aggression, na.rm = TRUE)) /
-    sd(aggression, na.rm = TRUE),
-    activity_sgy   = (activity   - mean(activity, na.rm = TRUE))   /
-    sd(activity, na.rm = TRUE),
-    docility_sgy   = (docility   - mean(docility, na.rm = TRUE))   /
-    sd(docility, na.rm = TRUE)
-    )
-
-# Standardize for glmm analyses
-fit_behav_data <- fit_behav_data %>%
-  ungroup() %>%
-  mutate(
-    aggression_s  = (aggression  - mean(aggression, na.rm = TRUE))  /
-    sd(aggression, na.rm = TRUE),
-    activity_s    = (activity    - mean(activity, na.rm = TRUE))    /
-    sd(activity, na.rm = TRUE),
-    docility_s    = (docility    - mean(docility, na.rm = TRUE))    /
-    sd(docility, na.rm = TRUE),
-    competition_s = (competition - mean(competition, na.rm = TRUE)) /
-    sd(competition, na.rm = TRUE)
-    )
 ```
 ```{r test_stadardization, results='asis'}
 fit_raneff_data %>%
@@ -151,11 +137,11 @@ fit_raneff_data %>%
 ```
 ```{r test_stadardization_gy, results='asis'}
 fit_raneff_data %>%
-  group_by(itt, Year, Grid, add = FALSE) %>%
+  group_by(itt, Year, add = FALSE) %>%
   summarise(
-    v_agg = var(aggression_sgy, na.rm = TRUE),
-    v_act = var(activity_sgy, na.rm = TRUE),
-    v_doc = var(docility_sgy, na.rm = TRUE)
+    v_agg = var(aggression_sy, na.rm = TRUE),
+    v_act = var(activity_sy, na.rm = TRUE),
+    v_doc = var(docility_sy, na.rm = TRUE)
     ) %>%
   head(.,n=10) %>%
   pandoc.table(.)
@@ -163,12 +149,32 @@ fit_raneff_data %>%
 ```{r fillin_0_for_NA}
 ## Fill NAs with mean trait values (in the case of the standardized traits, the 
 ## mean is zero)
-fit_raneff_data$aggression_s[is.na(fit_raneff_data$aggression_s)]     <- 0
-fit_raneff_data$activity_s[is.na(fit_raneff_data$activity_s)]         <- 0
-fit_raneff_data$docility_s[is.na(fit_raneff_data$docility_s)]         <- 0
-fit_raneff_data$aggression_sgy[is.na(fit_raneff_data$aggression_sgy)] <- 0
-fit_raneff_data$activity_sgy[is.na(fit_raneff_data$activity_sgy)]     <- 0
-fit_raneff_data$docility_sgy[is.na(fit_raneff_data$docility_sgy)]     <- 0
+fit_raneff_data$aggression_s[is.na(fit_raneff_data$aggression_s)]   <- 0
+fit_raneff_data$activity_s[is.na(fit_raneff_data$activity_s)]       <- 0
+fit_raneff_data$docility_s[is.na(fit_raneff_data$docility_s)]       <- 0
+fit_raneff_data$aggression_sy[is.na(fit_raneff_data$aggression_sy)] <- 0
+fit_raneff_data$activity_sy[is.na(fit_raneff_data$activity_sy)]     <- 0
+fit_raneff_data$docility_sy[is.na(fit_raneff_data$docility_sy)]     <- 0
+
+
+# Trickier for non-standardized data
+fit_raneff_data <- fit_raneff_data %>%
+group_by(itt, Year, add = FALSE) %>%
+mutate(
+  aggression_m = ifelse(
+    is.na(aggression),
+    mean(aggression, na.rm = TRUE),
+    aggression),
+  activity_m = ifelse(
+    is.na(activity),
+    mean(activity, na.rm = TRUE),
+    activity)
+    ,
+  docility_m = ifelse(
+    is.na(docility),
+    mean(docility, na.rm = TRUE),
+    docility)
+  )
 ```
 
 ## Sample Sizes
@@ -188,5 +194,4 @@ fit_raneff_data %>%
 
 ```{r save_data }
 save(fit_raneff_data, file = "data/analyses_data/fit_raneff_data.RData")
-save(fit_behav_data, file = "data/analyses_data/fit_behav_data.RData")
 ```
