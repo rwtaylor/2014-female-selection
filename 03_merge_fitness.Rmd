@@ -148,12 +148,12 @@ fit_raneff_data %>%
 ```{r fillin_0_for_NA}
 ## Fill NAs with mean trait values (in the case of the standardized traits, the 
 ## mean is zero)
-fit_raneff_data$aggression_s[is.na(fit_raneff_data$aggression_s)]   <- 0
-fit_raneff_data$activity_s[is.na(fit_raneff_data$activity_s)]       <- 0
-fit_raneff_data$docility_s[is.na(fit_raneff_data$docility_s)]       <- 0
-fit_raneff_data$aggression_sy[is.na(fit_raneff_data$aggression_sy)] <- 0
-fit_raneff_data$activity_sy[is.na(fit_raneff_data$activity_sy)]     <- 0
-fit_raneff_data$docility_sy[is.na(fit_raneff_data$docility_sy)]     <- 0
+#fit_raneff_data$aggression_s[is.na(fit_raneff_data$aggression_s)]   <- 0
+#fit_raneff_data$activity_s[is.na(fit_raneff_data$activity_s)]       <- 0
+#fit_raneff_data$docility_s[is.na(fit_raneff_data$docility_s)]       <- 0
+#fit_raneff_data$aggression_sy[is.na(fit_raneff_data$aggression_sy)] <- 0
+#fit_raneff_data$activity_sy[is.na(fit_raneff_data$activity_sy)]     <- 0
+#fit_raneff_data$docility_sy[is.na(fit_raneff_data$docility_sy)]     <- 0
 
 
 # Trickier for non-standardized data
