@@ -776,7 +776,7 @@ pandoc.table(c_table)
 
 ### Aggression plot
 ```{r compare_agg, fig.height=2.3, fig.width=2.17}
-p <- ggplot(filter(compare_grads, standardization == "SD" & variable == "Aggression"),
+p <- ggplot(filter(compare_grads, variable == "Aggression"),
   aes(x = blup_coef, y = mcmc_pm))
 p <- p + geom_point()
 p <- p + geom_errorbarh(aes(xmin = blup_lower, xmax = blup_upper),
@@ -802,7 +802,7 @@ p + theme(plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm"))
 
 ### Activity Plot
 ```{r compare_act, fig.height=2.3, fig.width=2.17}
-p <- ggplot(filter(compare_grads, standardization == "SD" & variable == "Activity"),
+p <- ggplot(filter(compare_grads, variable == "Activity"),
   aes(x = blup_coef, y = mcmc_pm))
 p <- p + geom_point()
 p <- p + geom_errorbarh(aes(xmin = blup_lower, xmax = blup_upper),
@@ -828,7 +828,7 @@ p + theme(plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm"))
 
 ### Docility Plot
 ```{r compare_doc, fig.height=2.3, fig.width=2.17}
-p <- ggplot(filter(compare_grads, standardization == "SD" & variable == "Docility"),
+p <- ggplot(filter(compare_grads, variable == "Docility"),
   aes(x = blup_coef, y = mcmc_pm))
 p <- p + geom_point()
 p <- p + geom_errorbarh(aes(xmin = blup_lower, xmax = blup_upper),
