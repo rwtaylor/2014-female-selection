@@ -29,6 +29,7 @@ set.alignment('right', row.names = 'left')
 library(dplyr)
 library(ggplot2)
 library(grid)
+library(arm)
 
 # Load Data
 load("data/analyses_data/fit_raneff_data.RData")
@@ -512,6 +513,7 @@ se <- function(lower, upper){
 }
 
 sum_stats_mcmc <- sel_grads_mcmc %>%
+filter(standardization = "SD") %>%
 group_by(variable, add = FALSE) %>%
 summarise(
   mean_abs_b = mean(abs(post_mode)),
@@ -531,25 +533,44 @@ Calculate selection gradients from BLUPs, estimate SE using jackknifing.
 ### Calculate selection gradients
 
 ```{r seCoeff}
+# Calculate standardized selection gradients
+res$docility_m    <- coefs["docility"] * mean(x$docility, na.rm = TRUE)
+res$aggression_sd <- coefs["aggression"] * sd(x$aggression, na.rm = TRUE)
+res$activity_sd   <- coefs["activity"] * sd(x$activity, na.rm = TRUE)
+res$docility_sd   <- coefs["docility"] * sd(x$docility, na.rm = TRUE)
+
+x <- fit_raneff_data %>% filter(type == "blup" & Year == 2003)
+
+### RYAN START HERE
+# Seems safest to just calc. standardized traits... then run a model for each
+# But how to do for docility mean standardized?
+# 
 seCoeffLmer <- function(x){
-  model <- lm(rel_ars ~ aggression_sgy + activity_sgy + docility_sgy, data = x)
-  coefs <- coef(model)[-1] ## Coefficients, but drop intercept
-  N <- nrow(x)
-  pseudo <- data.frame(matrix(NA, N, 3))
-  for(i in 1:N){ ## Calculate pseudovalues
-  	pseudo[i, ] <- N * coefs - (N - 1) * coef(update(model,
-      data = x, subset = -i))[-1]
-  }
-  t_0.05 <- qt(0.975, N - 1) * sqrt(diag(var(pseudo)) / N)
-  t_0.10 <- qt(0.950, N - 1) * sqrt(diag(var(pseudo)) / N)
+  model <- lm(rel_ars ~ aggression_m + activity_m + docility_m, data = x)
+  mod.coefs <- coef(model)[-1]
+  sim.coefs <- data.frame(coef(sim(model))[ ,-1]) ## Simulated coefficients for calculating uncertainty.
+  names(sim.coefs) <- names(mod.coefs)
+  sim.CI <- apply(sim.coefs, 2, quantile, prob = c(0.025, 0.975)) #0.95 conf. int.
+  # Calculate standardized coefficients (mean stan. only for docil)
+  sd.traits <- c(sd(x$aggression, na.rm = TRUE),
+                 sd(x$activity, na.rm = TRUE),
+                 sd(x$docility, na.rm = TRUE)
+                 )
+  sd.coefs <- mod.coefs * sd.traits
+  sd.matrix <- matrix(c(sd.traits, sd.traits), ncol = 3, byrow = TRUE)
+  sim.sd.coefs <- sim.coefs * sd.traits
+  sim.sd.CI <- apply(sim.sd.coefs, 2, quantile, prob = c(0.025, 0.975)) #0.95 conf. int.
+  2.5%      -0.990628 -0.05080394  -0.7053028
+  97.5%      0.727805  1.94957088   0.5780641
+  
+  
+  docil.mean.coef <- mod.coefs["docility"] * mean(x$docility, na.rm = TRUE)
   out <- data.frame(
-    Year = as.numeric(as.character(x$Year[1:3])),
-    variable = c("Aggression", "Activity", "Docility"),
-    coefficients = coefs,
-    variances = diag(var(pseudo)) / N,
-    std.errors = sqrt(diag(var(pseudo)) / N),
-    CI_0.05    = t_0.05,
-    CI_0.10    = t_0.10,
+    standardization = c("None","None","None","SD","SD","SD","Mean"),
+    Year = as.numeric(as.character(x$Year[1:7])),
+    variable = c("Aggression", "Activity", "Docility", 
+      "Aggression", "Activity", "Docility", "Docility"),
+    coefficients = c(mod.coefs, sd.coefs, docil.mean.coef),
     upper = coefs + t_0.05,
     lower = coefs - t_0.05,
     upper_1 = coefs + t_0.10,
