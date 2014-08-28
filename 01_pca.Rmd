@@ -31,7 +31,7 @@ We will use principal component analysis to reduce the redundancy among the beha
 
 To evaluate the appropriateness of this analyses we will follow Budaev's advice (2010. Using Principal Components and Factor Analysis in Animal Behaviour Research: Caveats and Guidelines. Ethology 116: 472–480.). Budaev suggests some best practices for reporting PCA results that we will follow.
 
-```{r pca-data}
+```{r pca-data, cache=FALSE}
 library(foreach)
 library(doMC)
 registerDoMC()
@@ -42,6 +42,7 @@ set.alignment('right', row.names = 'left')
 library(mvnormtest)
 library(psych)
 library(ggplot2)
+library(MCMCglmm)
 behav_data <- tbl_df(read.table(file = "data/behaviour.csv",
                                 sep = ',',
                                 header = TRUE,
@@ -72,7 +73,6 @@ save(mis_data, mis_sub_data, file = "data/analyses_data/mis_sub.Rdata")
 
 ```{r bartlett}
 load("data/analyses_data/mis_sub.Rdata")
-library(psych)
 n_trials <- mis_data %>% ungroup() %>% summarise(n = n())
 mis_KMO_Bart <- mis_sub_data %>%
     group_by(itt) %>%
@@ -84,7 +84,7 @@ mis_KMO_Bart <- mis_sub_data %>%
         attack_rate, back, ln_attack_latency, 
         ln_approach_latency)), n = n_trials$n)$chisq
       )
-library(ggplot2)
+
 p <- ggplot(mis_KMO_Bart, aes(x = KMO_MSA))
 p <- p + geom_histogram(binwidth = 0.01)
 p + ggtitle("Bootstrapped KMO MSA values") + xlim(c(0,1))
@@ -183,7 +183,6 @@ save(of_data, of_sub_data, file = "data/analyses_data/of_sub_data.RData")
 
 ```{r of_bartlett}
 load("data/analyses_data/of_sub_data.RData")
-library(psych)
 n_trials <- of_data %>% summarise(n = n())
 of_KMO_Bart <- of_sub_data %>%
                 group_by(itt) %>%
@@ -195,7 +194,7 @@ of_KMO_Bart <- of_sub_data %>%
                     jump_rate, chew, still, hang, groom, walk, fecal)),
                     n = n_trials$n)$chisq
                   )
-library(ggplot2)
+
 p <- ggplot(of_KMO_Bart, aes(x = KMO_MSA)) + geom_histogram(binwidth = 0.01)
 p + ggtitle("Bootstrapped KMO MSA values") + xlim(c(0,1))
 
@@ -217,7 +216,6 @@ kmo_of <- foreach(i = 1:100, .combine = 'rbind') %do% {
   KMO(foo[ ,c(-1,-2,-11)])$MSAi
 }
 kmo_of <- tbl_df(data.frame(kmo_of))
-library(MCMCglmm)
 
 p <- ggplot(gather(kmo_of, hole_rate, jump_rate, chew, still, hang, groom, walk, fecal, key = "behav", value = "KMO"), aes(x = KMO))
 p <- p + facet_wrap( ~ behav) + geom_histogram(binwidth = 0.02) + xlim(c(0,1))
