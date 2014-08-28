@@ -60,7 +60,8 @@ competition_year <- left_join(competition_year, n_year, by = "Year")
 competition_year$Year <- as.character(competition_year$Year)
 
 load("data/analyses_data/sel_grads_mcmc.RData")
-sel_grads_mcmc_comp <- left_join(sel_grads_mcmc, competition_year,
+sel_grads_mcmc_comp <- left_join(
+  filter(sel_grads_mcmc, standardization == "None"), competition_year,
   by = "Year")
 save(sel_grads_mcmc_comp, competition_year,
   file = "data/analyses_data/sel_grads_mcmc_comp.RData")
@@ -362,7 +363,8 @@ competition_year <- left_join(competition_year, n_year, by = "Year")
 competition_year$Year <- as.character(competition_year$Year)
 
 load("data/analyses_data/sel_grads_blup.RData")
-sel_grads_blup_competition <- left_join(sel_grads_blup, competition_year,
+sel_grads_blup_competition <- left_join(
+  filter(sel_grads_blup, standardization == "None"), competition_year,
   by = "Year")
 save(sel_grads_blup_competition, competition_year,
   file = "data/analyses_data/sel_grads_blup_competition.RData")
