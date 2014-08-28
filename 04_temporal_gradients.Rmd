@@ -26,10 +26,10 @@ opts_chunk$set(cache.path="cache/04/")
 ```{r t_g_data, cache=FALSE}
 library(pander)
 set.alignment('right', row.names = 'left')
+library(arm)
 library(dplyr)
 library(ggplot2)
 library(grid)
-library(arm)
 
 # Load Data
 load("data/analyses_data/fit_raneff_data.RData")
@@ -104,16 +104,15 @@ Calculate selection coefficients for each of the 1000 samples of the posterior d
 
 ```{r sel_grad_mcmc_post}
 # Function to get posterior distribution of selection gradients
+x <- fit_raneff_data %>% filter(type == "raneff" & Year == 2003 & itt == 1)
 seCoefMCMC <- function(x){
-  mod <- lm(rel_ars ~ aggression + activity + docility, data = x)
-  res <- as.list(coef(mod)[-1])
+  mod <- lm(rel_ars ~ aggression_m + activity_m + docility_m, data = x)
+  mod.sd <-  lm(rel_ars ~ aggression_sy + activity_sy + docility_sy, data = x)
+  res <- c(as.list(coef(mod)[-1]), as.list(coef(mod.sd)[-1]))
   res$Year <- x$Year[1]
   res$itt <- x$itt[1]
   # Calculate standardized selection gradients
-  res$docility_m    <- res$docility * mean(x$docility, na.rm = TRUE)
-  res$aggression_sd <- res$aggression * sd(x$aggression, na.rm = TRUE)
-  res$activity_sd   <- res$activity * sd(x$activity, na.rm = TRUE)
-  res$docility_sd   <- res$docility * sd(x$docility, na.rm = TRUE)
+  res$docility_m    <- res$docility_m * mean(x$docility, na.rm = TRUE)
   return(data.frame(res, stringsAsFactors = FALSE))
 }
 
@@ -134,18 +133,14 @@ load("data/analyses_data/sel_grads_mcmc_post.RData")
 library(MCMCglmm)
 getCred <- function(x, sig = 0.05){
   require(MCMCglmm)
-  mcmc_data <- x %>%
-    ungroup() %>%
-    select(aggression, activity, docility, docility_m, aggression_sd,
-      activity_sd, docility_sd) %>%
-    mcmc(.)
+  mcmc_data <- x %>% ungroup() %>% select(aggression, activity, docility, aggression_sy, activity_sy, docility_sy, docility_m) %>% mcmc(.)
   pm  <- posterior.mode(mcmc_data)
   int <- HPDinterval(mcmc_data, prob = 1 - sig)
   tbl_df(data.frame(
     Year      = x$Year[1],
-    variable  = c("Aggression", "Activity", "Docility", "Docility",
-     "Aggression", "Activity", "Docility"),
-     standardization = c("None", "None", "None", "Mean", "SD", "SD", "SD"),
+    variable  = c("Aggression", "Activity", "Docility",
+     "Aggression", "Activity", "Docility", "Docility"),
+     standardization = c("None", "None", "None", "SD", "SD", "SD", "Mean"),
     post_mode = pm,
     lower     = int[ ,"lower"],
     upper     = int[ ,"upper"],
@@ -544,8 +539,9 @@ x <- fit_raneff_data %>% filter(type == "blup" & Year == 2003)
 ### RYAN START HERE
 # Seems safest to just calc. standardized traits... then run a model for each
 # But how to do for docility mean standardized?
-# 
+# Don't report confidence intervals?
 seCoeffLmer <- function(x){
+  model <- lm(rel_ars ~ aggression_m + activity_m + docility_m, data = x)
   model <- lm(rel_ars ~ aggression_m + activity_m + docility_m, data = x)
   mod.coefs <- coef(model)[-1]
   sim.coefs <- data.frame(coef(sim(model))[ ,-1]) ## Simulated coefficients for calculating uncertainty.
