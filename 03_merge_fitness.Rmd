@@ -161,16 +161,16 @@ fit_raneff_data$docility_sy[is.na(fit_raneff_data$docility_sy)]     <- 0
 fit_raneff_data <- fit_raneff_data %>%
 group_by(itt, Year, add = FALSE) %>%
 mutate(
-  aggression_m = ifelse(
+  aggression_fm = ifelse(
     is.na(aggression),
     mean(aggression, na.rm = TRUE),
     aggression),
-  activity_m = ifelse(
+  activity_fm = ifelse(
     is.na(activity),
     mean(activity, na.rm = TRUE),
     activity)
     ,
-  docility_m = ifelse(
+  docility_fm = ifelse(
     is.na(docility),
     mean(docility, na.rm = TRUE),
     docility)
