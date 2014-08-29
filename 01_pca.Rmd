@@ -65,7 +65,7 @@ mis_sub_data <- foreach(i = 1:100, .combine = 'rbind') %dopar% {
   mis_data %>%
   group_by(ID) %>%
   do(sample_n(., 1)) %>%
-  mutate(itt = i)  
+  mutate(itt = i)
 }
 save(mis_data, mis_sub_data, file = "data/analyses_data/mis_sub.Rdata")
 ```
