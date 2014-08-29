@@ -26,8 +26,9 @@ opts_chunk$set(cache.path='cache/03/')
 ###Load Data
 
 ```{r fitness_data}
+library(MASS) # MASS clashes with dplyr... so always load first
+library(pander) # pander clashes with dplyr... so always load first
 library(dplyr)
-library(pander)
 set.alignment('right', row.names = 'left')
 load("data/analyses_data/raneffs_blups.RData")
 # load("data/analyses_data/pca.RData")

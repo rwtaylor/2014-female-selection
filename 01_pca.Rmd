@@ -32,12 +32,13 @@ We will use principal component analysis to reduce the redundancy among the beha
 To evaluate the appropriateness of this analyses we will follow Budaev's advice (2010. Using Principal Components and Factor Analysis in Animal Behaviour Research: Caveats and Guidelines. Ethology 116: 472–480.). Budaev suggests some best practices for reporting PCA results that we will follow.
 
 ```{r pca-data, cache=FALSE}
+library(MASS) # MASS clashes with dplyr... so always load first
+library(pander) # pander clashes with dplyr... so always load first
 library(foreach)
 library(doMC)
 registerDoMC()
 library(tidyr)
 library(dplyr)
-library(pander)
 set.alignment('right', row.names = 'left')
 library(mvnormtest)
 library(psych)
