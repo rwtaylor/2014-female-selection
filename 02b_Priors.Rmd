@@ -123,8 +123,7 @@ gd
 hd
 ```
 
-```{r diagnostic_plots, fig.cap = FALSE}
-
+```{r 02b_diagnostic_plots, fig.cap = FALSE}
 for(i in 1:length(priors)){
   plot(m_priors[[i]]$VCV)
 }
@@ -180,7 +179,7 @@ cov_modes[upper.tri(cov_modes)] <- cor_modes[upper.tri(cor_modes)]
 pandoc.table(cov_modes)
 ```
 
-```{r plot_modes, fig.cap="", fig.width=8, fig.height=8}
+```{r 02b_plot_modes, fig.cap="", fig.width=8, fig.height=8}
 library(ggplot2)
 library(GGally)
 ggpairs(mcmc_modes, columns = 3:ncol(mcmc_modes))
