@@ -88,7 +88,7 @@ mcmc_cor$print <- paste(mcmc_cor$est,
 ```
 #### Aggression and Competition
 
-```{r 05_agg_comp_mcmc, fig.height=2.3, fig.width=2.17}
+```{r 05_agg_comp_mcmc, fig.height=2.3, fig.width=2.17, cache=FALSE}
 p <- ggplot(data = filter(sel_grads_mcmc_comp, variable == "Aggression"),
   aes(x = mean_competition, y = post_mode))
 p <- p + geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.2, size = 0.2)
@@ -111,7 +111,7 @@ p + theme(plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm"))
 ```
 
 #### Activity and Competition
-```{r 05_act_comp_mcmc, fig.height=2.3, fig.width=2.17}
+```{r 05_act_comp_mcmc, fig.height=2.3, fig.width=2.17, cache=FALSE}
 p <- ggplot(data = filter(sel_grads_mcmc_comp, variable == "Activity"),
   aes(x = mean_competition, y = post_mode))
 p <- p + geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.2, size = 0.2)
@@ -134,7 +134,7 @@ p <- p + theme(plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm"))
 ```
 
 #### Docility and Competition
-```{r 05_doc_comp_mcmc, fig.height=2.3, fig.width=2.17}
+```{r 05_doc_comp_mcmc, fig.height=2.3, fig.width=2.17, cache=FALSE}
 p <- ggplot(data = filter(sel_grads_mcmc_comp, variable == "Docility"),
   aes(x = mean_competition, y = post_mode))
 p <- p + geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.2, size = 0.2)
@@ -392,7 +392,7 @@ sg.comp$print <- paste(sg.comp$est, " (", sg.comp$lower, ", ",
 
 #### Aggression and Competition
 
-```{r 05_agg_comp_blup, fig.height=2.3, fig.width=2.17}
+```{r 05_agg_comp_blup, fig.height=2.3, fig.width=2.17, cache=FALSE}
 p <- ggplot(data = filter(sel_grads_blup_competition,
   variable == "Aggression"), aes(x = mean_competition, y = coefficients))
 p <- p + geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.2, size = 0.2)
@@ -412,7 +412,7 @@ p
 
 #### Activity and Competition
 
-```{r 05_act_comp_blup, fig.height=2.3, fig.width=2.17}
+```{r 05_act_comp_blup, fig.height=2.3, fig.width=2.17, cache=FALSE}
 p <- ggplot(data = filter(sel_grads_blup_competition, variable == "Activity"), 
   aes(x = mean_competition, y = coefficients))
 p <- p + geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.2, size = 0.2)
@@ -436,7 +436,7 @@ p
 
 #### Docility and Competition
 
-```{r 05_doc_comp_blup, fig.height=2.3, fig.width=2.17}
+```{r 05_doc_comp_blup, fig.height=2.3, fig.width=2.17, cache=FALSE}
 p <- ggplot(data = filter(sel_grads_blup_competition, variable == "Docility"),
   aes(x = mean_competition, y = coefficients))
 p <- p + geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.2, size = 0.2)
@@ -641,7 +641,7 @@ pandoc.table(coef_p_kpd[c(1,3,2,4:16), c(5,3,4)],
 ```
 
 #### Plot of quadratic interaction
-```{r figures_blups, tidy=TRUE, tidy.opts=list(keep.blank.line=TRUE, width.cutoff=60)}
+```{r figures_blups, tidy=TRUE, tidy.opts=list(keep.blank.line=TRUE, width.cutoff=60), cache=FALSE}
 library(effects)
 library(ggplot2)
 
@@ -684,12 +684,12 @@ quad_plot
 dev.off()
 
 ```
-```{r 05_quad, fig.width=3.14, fig.height=2}
+```{r 05_quad, fig.width=3.14, fig.height=2, cache=FALSE}
 quad_plot
 ```
 
 #### Tile plot of interaction
-```{r tile_plot, tidy=TRUE, tidy.opts=list(blank=TRUE, width.cutoff=60)}
+```{r tile_plot, tidy=TRUE, tidy.opts=list(blank=TRUE, width.cutoff=60), cache=FALSE}
 n = 12
 e <- Effect(c("aggression_s", "activity_s", "competition_s"), g.ows,
   xlevels = list(aggression_s = n, activity_s = n, competition_s = 2))
@@ -722,6 +722,6 @@ tile_plot
 dev.off()
 ```
 
-```{r 05_tile, fig.width=3.14, fig.height=3.14}
+```{r 05_tile, fig.width=3.14, fig.height=3.14, cache=FALSE}
 tile_plot
 ```

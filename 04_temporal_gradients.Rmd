@@ -221,7 +221,7 @@ pandoc.table(
 ```
 
 ### Plots
-```{r 04_sg_mcmc_SD, fig.cap="SD Standardized Selection Gradients"}
+```{r 04_sg_mcmc_SD, fig.cap="SD Standardized Selection Gradients", cache=FALSE}
 load("data/analyses_data/sel_grads_mcmc_post.RData")
 library(ggplot2)
 library(dplyr)
@@ -275,7 +275,7 @@ dev.off()
 p_sel_grad_MCMC
 ```
 
-```{r 04_sg_mcmc_NS, fig.cap="Non-standardized Selection Gradients"}
+```{r 04_sg_mcmc_NS, fig.cap="Non-standardized Selection Gradients", cache=FALSE}
 load("data/analyses_data/sel_grads_mcmc_post.RData")
 library(ggplot2)
 library(dplyr)
@@ -372,7 +372,7 @@ cor_doc_act <- cor.behav(sel_grads_mcmc_flat$Docility,
 
 #### Aggression and Activity
 
-```{r 04_agg_act_mcmc, fig.height=2.03, fig.width=2.17}
+```{r 04_agg_act_mcmc, fig.height=2.03, fig.width=2.17, cache=FALSE}
 p <- ggplot(data = sel_grads_mcmc_flat, aes(x = Activity, y = Aggression))
 p <- p + geom_point()
 p <- p + ylab("Aggression")
@@ -394,7 +394,7 @@ p + theme(plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm"))
 
 #### Aggression and Docility
 
-```{r 04_agg_doc_mcmc, fig.height=2.03, fig.width=2.17}
+```{r 04_agg_doc_mcmc, fig.height=2.03, fig.width=2.17, cache=FALSE}
 p <- ggplot(data = sel_grads_mcmc_flat, aes(y = Aggression, x = Docility))
 p <- p + geom_point()
 p <- p + ylab("Aggression")
@@ -418,7 +418,7 @@ p + scale_x_continuous(limits = c(-0.6, 0.55),
 
 #### Activity and Docility
 
-```{r 04_act_doc_mcmc, fig.height=2.03, fig.width=2.17}
+```{r 04_act_doc_mcmc, fig.height=2.03, fig.width=2.17, cache=FALSE}
 p <- ggplot(data = sel_grads_mcmc_flat, aes(x = Activity, y = Docility))
 p <- p + geom_point()
 p <- p + xlab("Activity")
@@ -573,7 +573,7 @@ pandoc.table(
 **Female Linear Selection Gradients ARS**  
 Linear selection gradients ± 95% credible intervals for female behavioral traits on annual reproductive success.
 
-```{r 04_sg_blup_SD, fig.width=6, fig.height=4}
+```{r 04_sg_blup_SD, fig.width=6, fig.height=4, cache=FALSE}
 load("data/analyses_data/sel_grads_blup.RData")
 sel_grads_blup$post_mode <- sel_grads_blup$coefficients
 sel_grads_blup$upper_sig_star <- ""
@@ -658,7 +658,7 @@ cor_blup_doc_act <- cor.behav(sel_grads_blup_flat$Docility,
 ```
 
 #### Aggression and Activity
-```{r 04_agg_act_blup, fig.height=2.03, fig.width=2.17}
+```{r 04_agg_act_blup, fig.height=2.03, fig.width=2.17, cache=FALSE}
 p <- ggplot(data = sel_grads_blup_flat, aes(x = Activity, y = Aggression))
 p <- p + geom_point()
 p <- p + ylab("Aggression")
@@ -680,7 +680,7 @@ p + theme(plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm"))
 ```
 
 #### Aggression and Docility
-```{r 04_agg_doc_blup, fig.height=2.03, fig.width=2.17}
+```{r 04_agg_doc_blup, fig.height=2.03, fig.width=2.17, cache=FALSE}
 p <- ggplot(data = sel_grads_blup_flat, aes(y = Aggression, x = Docility))
 p <- p + geom_point()
 p <- p + ylab("Aggression")
@@ -702,7 +702,7 @@ p + theme(plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm"))
 ```
 
 #### Activity and Docility
-```{r 04_act_doc_blup, fig.height=2.03, fig.width=2.17}
+```{r 04_act_doc_blup, fig.height=2.03, fig.width=2.17, cache=FALSE}
 p <- ggplot(data = sel_grads_blup_flat, aes(x = Activity, y = Docility))
 p <- p + geom_point()
 p <- p + xlab("Activity")
@@ -775,7 +775,7 @@ pandoc.table(c_table)
 ```
 
 ### Aggression plot
-```{r 04_compare_agg, fig.height=2.3, fig.width=2.17}
+```{r 04_compare_agg, fig.height=2.3, fig.width=2.17, cache=FALSE}
 p <- ggplot(filter(compare_grads, variable == "Aggression"),
   aes(x = blup_coef, y = mcmc_pm))
 p <- p + geom_point()
@@ -801,7 +801,7 @@ p + theme(plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm"))
 ```
 
 ### Activity Plot
-```{r 04_compare_act, fig.height=2.3, fig.width=2.17}
+```{r 04_compare_act, fig.height=2.3, fig.width=2.17, cache=FALSE}
 p <- ggplot(filter(compare_grads, variable == "Activity"),
   aes(x = blup_coef, y = mcmc_pm))
 p <- p + geom_point()
@@ -827,7 +827,7 @@ p + theme(plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm"))
 ```
 
 ### Docility Plot
-```{r 04_compare_doc, fig.height=2.3, fig.width=2.17}
+```{r 04_compare_doc, fig.height=2.3, fig.width=2.17, cache=FALSE}
 p <- ggplot(filter(compare_grads, variable == "Docility"),
   aes(x = blup_coef, y = mcmc_pm))
 p <- p + geom_point()
