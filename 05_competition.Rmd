@@ -103,9 +103,8 @@ p <- p + theme(panel.grid.major = element_blank(),
   strip.background = element_blank(), strip.text = element_text(size = 10),
   panel.border = element_rect(linetype = "solid", colour = "black"),
   plot.title = element_text(size = 10))
-p <- p + ylim(c(-1, 1))
 p <- p + geom_text(data = filter(mcmc_cor, variable == "Aggression"),
-  aes(x = 6.5, y = 1, label = paste("Correlation = ", print, sep = '')),
+  aes(x = 6.5, y = 1.1, label = paste("Correlation = ", print, sep = '')),
   size = 2.5)
 p + theme(plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm"))
 ```
@@ -128,9 +127,9 @@ p <- p + theme(panel.grid.major = element_blank(),
   plot.title = element_text(size = 10))
 p <- p + ylim(c(-1, 1.5))
 p <- p + geom_text(data = filter(mcmc_cor, variable == "Activity"),
-  aes(x = 6.5, y = 1.5, label = paste("Correlation = ", print, sep = '')),
-  size = 3.5)
-p <- p + theme(plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm"))
+  aes(x = 6.1, y = 1.5, label = paste("Correlation = ", print, sep = '')),
+  size = 2.5)
+p + theme(plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm"))
 ```
 
 #### Docility and Competition
@@ -149,11 +148,10 @@ p <- p + theme(panel.grid.major = element_blank(),
   strip.background = element_blank(), strip.text = element_text(size = 10),
   panel.border = element_rect(linetype = "solid", colour = "black"),
   plot.title = element_text(size = 10))
-p <- p + ylim(c(-0.60, 0.60))
 p <- p + geom_text(data = filter(mcmc_cor, variable == "Docility"),
-  aes(x = 6.5, y = 0.60, label = paste("Correlation = ", print, sep = '')),
-  size = 3.5)
-p <- p + theme(plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm"))
+  aes(x = 6.1, y = 0.65, label = paste("Correlation = ", print, sep = '')),
+  size = 2.5)
+p + theme(plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm"))
 ```
 
 ### Effect of competition on linear selection (glmms)
@@ -403,11 +401,9 @@ p <- p + ylab("Selection Gradient")
 p <- p + ggtitle("Aggression")
 p <- p + xlab("Juvenile Competition")
 p <- p + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), strip.background = element_blank(), strip.text = element_text(size = 10), panel.border = element_rect(linetype = "solid", colour = "black"), plot.title = element_text(size = 10))
-p <- p + ylim(c(-1.4, 1.5))
 p <- p + geom_text(data = filter(sg.comp, variable == "Aggression"),
   aes(x = 6, y = 1.5, label = paste("r = ", print, sep = '')), size = 2.5)
-p <- p + theme(plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm"))
-p
+p + theme(plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm"))
 ```
 
 #### Activity and Competition
@@ -427,11 +423,10 @@ p <- p + theme(panel.grid.major = element_blank(),
   strip.background = element_blank(), strip.text = element_text(size = 10),
   panel.border = element_rect(linetype = "solid", colour = "black"),
   plot.title = element_text(size = 10))
-p <- p + ylim(c(-1.9, 2.1))
 p <- p + geom_text(data = filter(sg.comp, variable == "Activity"),
-  aes(x = 6, y = 2.1, label = paste("r = ", print, sep = '')), size = 2.5)
-p <- p + theme(plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm"))
-p
+  aes(x = 6, y = 2.2, label = paste("r = ", print, sep = '')), size = 2.5)
+  pdf(file = "test.pdf", width = 2.17, height = 2.03)
+p + theme(plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm"))
 ```
 
 #### Docility and Competition
@@ -451,11 +446,9 @@ p <- p + theme(panel.grid.major = element_blank(),
   strip.background = element_blank(), strip.text = element_text(size = 10),
   panel.border = element_rect(linetype = "solid", colour = "black"),
   plot.title = element_text(size = 10))
-p <- p + scale_y_continuous(limits = c(-1.1, 1), breaks = c(-1, 0, 1))
 p <- p + geom_text(data = filter(sg.comp, variable == "Docility"),
   aes(x = 6, y = 1, label = paste("r = ", print, sep = '')), size = 2.5)
-p <- p + theme(plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm"))
-p
+p + theme(plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm"))
 ```
 
 ### Effect of competition on linear selection

@@ -672,9 +672,7 @@ p <- p + geom_errorbarh(aes(xmin = Act_lower, xmax = Act_upper),
   height = 0.07, size = 0.2)
 p <- p + geom_errorbar(aes(ymin = Agg_lower, ymax = Agg_upper),
   width = 0.07, size = 0.2)
-p <- p + xlim(c(-1.8,2))
-p <- p + ylim(c(-1.4, 1.6))
-p <- p + annotate(geom = "text", size = 2.5, x = 0.25, y = 1.6,
+p <- p + annotate(geom = "text", size = 2.5, x = 0.1, y = 1.7,
   label = paste("r = ", cor_blup_agg_act, sep = ''))
 p + theme(plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm"))
 ```
@@ -694,9 +692,7 @@ p <- p + geom_errorbarh(aes(xmin = Doc_lower, xmax = Doc_upper),
   height = 0.07, size = 0.2)
 p <- p + geom_errorbar(aes(ymin = Agg_lower, ymax = Agg_upper),
   width = 0.03, size = 0.2)
-p <- p + xlim(c(-1.1,1))
-p <- p + ylim(c(-1.4, 1.6))
-p <- p + annotate(geom = "text", size = 2.5, x = 0.2, y = 1.6,
+p <- p + annotate(geom = "text", size = 2.5, x = -0.1, y = 1.7,
   label = paste("r = ", cor_blup_agg_doc, sep = ''))
 p + theme(plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm"))
 ```
@@ -716,9 +712,7 @@ p <- p + geom_errorbar(aes(ymin = Doc_lower, ymax = Doc_upper),
   width = 0.07, size = 0.2)
 p <- p + geom_errorbarh(aes(xmin = Act_lower, xmax = Act_upper),
   height = 0.03, size = 0.2)
-p <- p + scale_y_continuous(limits = c(-1.1, 1), breaks = c(-1, 0, 1))
-p <- p + xlim(c(-1.8, 2))
-p <- p + annotate(geom = "text", size = 2.5, x = 0, y = 1,
+p <- p + annotate(geom = "text", size = 2.5, x = 0, y = 1.2,
   label = paste("r = ", cor_blup_doc_act, sep = ''))
 p + theme(plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm"))
 ```
@@ -789,13 +783,11 @@ p <- p + theme(plot.title = element_text(size = 10),
   panel.background = element_blank(), strip.background = element_blank(),
   strip.text = element_blank(),
   panel.border = element_rect(linetype = "solid", colour = "black"))
-p <- p + annotate(geom = "text", size = 2.5, x = 0, y = 1.5,
+p <- p + annotate(geom = "text", size = 2.5, x = 0.1, y = 1.1,
   label = paste("r = ", filter(c_table, variable == "Aggression") %>%
   select(cor_test), sep = ''))
 p <- p + ylab("Posterior Modes")
 p <- p + xlab("Selection Gradients")
-p <- p + xlim(c(-1.4, 1.5))
-p <- p + ylim(c(-1.4, 1.5))
 p <- p + ggtitle("Aggression")
 p + theme(plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm"))
 ```
@@ -815,13 +807,11 @@ p <- p + theme(plot.title = element_text(size = 10),
   panel.background = element_blank(), strip.background = element_blank(),
   strip.text = element_blank(),
   panel.border = element_rect(linetype = "solid", colour = "black"))
-p <- p + annotate(geom = "text", size = 2.5, x = 0, y = 2,
+p <- p + annotate(geom = "text", size = 2.5, x = 0, y = 1.5,
   label = paste("r = ", filter(c_table, variable == "Activity") %>%
   select(cor_test), sep = ''))
 p <- p + ylab("Posterior Modes")
 p <- p + xlab("Selection Gradients")
-p <- p + xlim(c(-1.8,2))
-p <- p + ylim(c(-1.8,2))
 p <- p + ggtitle("Activity")
 p + theme(plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm"))
 ```
@@ -843,9 +833,7 @@ p <- p + theme(plot.title = element_text(size = 10),
   panel.border = element_rect(linetype = "solid", colour = "black"))
 p <- p + ylab("Posterior Modes")
 p <- p + xlab("Selection Gradients")
-p <- p + xlim(c(-1.1,0.9)) 
-p <- p + scale_y_continuous(limits = c(-1.1, 1), breaks = c(-1, 0, 1))
-p <- p + annotate(geom = "text", size = 2.5, x = 0, y = 1,
+p <- p + annotate(geom = "text", size = 2.5, x = 0, y = 0.7,
   label = paste("r = ", filter(c_table, variable == "Docility") %>%
   select(cor_test), sep = ''))
 p <- p + ggtitle("Docility")
