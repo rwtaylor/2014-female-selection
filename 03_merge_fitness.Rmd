@@ -42,8 +42,6 @@ fitness <- tbl_df(fitness)
 ```{r merge_fitness }
 fitness$ID <- as.character(fitness$ID)
 fit_raneff_data <- inner_join(fitness, raneffs_blups, by = "ID")
-fit_raneff_data <- fit_raneff_data %>%
-  filter(!is.na(docility) & !is.na(aggression) & !is.na(activity))
 ```
 
 ## Relative Fitness
