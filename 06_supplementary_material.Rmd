@@ -41,6 +41,7 @@ and archived on Zenodo
 library(MASS) # MASS clashes with dplyr... so always load first
 library(pander) # pander clashes with dplyr... so always load first
 set.alignment('right', row.names = 'left')
+panderOptions('table.split.table', Inf)
 library(dplyr)
 library(MCMCglmm)
 ```
