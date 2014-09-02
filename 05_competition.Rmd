@@ -88,7 +88,7 @@ mcmc_cor$print <- paste(mcmc_cor$est,
 ```
 #### Aggression and Competition
 
-```{r agg_comp_mcmc, fig.height=2.3, fig.width=2.17}
+```{r 05_agg_comp_mcmc, fig.height=2.3, fig.width=2.17}
 p <- ggplot(data = filter(sel_grads_mcmc_comp, variable == "Aggression"),
   aes(x = mean_competition, y = post_mode))
 p <- p + geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.2, size = 0.2)
@@ -111,7 +111,7 @@ p + theme(plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm"))
 ```
 
 #### Activity and Competition
-```{r act_comp_mcmc, fig.height=2.3, fig.width=2.17}
+```{r 05_act_comp_mcmc, fig.height=2.3, fig.width=2.17}
 p <- ggplot(data = filter(sel_grads_mcmc_comp, variable == "Activity"),
   aes(x = mean_competition, y = post_mode))
 p <- p + geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.2, size = 0.2)
@@ -134,7 +134,7 @@ p <- p + theme(plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm"))
 ```
 
 #### Docility and Competition
-```{r doc_comp_mcmc, fig.height=2.3, fig.width=2.17}
+```{r 05_doc_comp_mcmc, fig.height=2.3, fig.width=2.17}
 p <- ggplot(data = filter(sel_grads_mcmc_comp, variable == "Docility"),
   aes(x = mean_competition, y = post_mode))
 p <- p + geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.2, size = 0.2)
@@ -392,7 +392,7 @@ sg.comp$print <- paste(sg.comp$est, " (", sg.comp$lower, ", ",
 
 #### Aggression and Competition
 
-```{r agg_comp_blup, fig.height=2.3, fig.width=2.17}
+```{r 05_agg_comp_blup, fig.height=2.3, fig.width=2.17}
 p <- ggplot(data = filter(sel_grads_blup_competition,
   variable == "Aggression"), aes(x = mean_competition, y = coefficients))
 p <- p + geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.2, size = 0.2)
@@ -412,7 +412,7 @@ p
 
 #### Activity and Competition
 
-```{r act_comp_blup, fig.height=2.3, fig.width=2.17}
+```{r 05_act_comp_blup, fig.height=2.3, fig.width=2.17}
 p <- ggplot(data = filter(sel_grads_blup_competition, variable == "Activity"), 
   aes(x = mean_competition, y = coefficients))
 p <- p + geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.2, size = 0.2)
@@ -436,7 +436,7 @@ p
 
 #### Docility and Competition
 
-```{r doc_comp_blup, fig.height=2.3, fig.width=2.17}
+```{r 05_doc_comp_blup, fig.height=2.3, fig.width=2.17}
 p <- ggplot(data = filter(sel_grads_blup_competition, variable == "Docility"),
   aes(x = mean_competition, y = coefficients))
 p <- p + geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.2, size = 0.2)
@@ -679,12 +679,12 @@ plot_d$env <- paste(plot_d$Competition, plot_d$Activity, sep = ".")
 
 quad_plot <- ggplot(plot_d, aes(x = Aggression, y = OWS)) + geom_line(aes(alpha = Activity, linetype = type, size = type)) +  facet_wrap( ~ Competition) + scale_alpha_discrete(range = c(1,0.3)) + scale_linetype_manual(values = c(2,1,2)) + scale_size_manual(values = c(0.3,1,0.3)) + ylab("Offspring\nOverwinter Survival") + xlab("Aggression") + theme_bw(base_size = 10) + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), panel.border = element_rect(linetype = "solid", colour = "black"), axis.ticks = element_blank(), axis.text = element_text(size = 10), legend.key=element_blank(), strip.background = element_blank()) + guides(linetype = FALSE, size = FALSE, alpha = guide_legend(override.aes=list(size = 1))) + theme(legend.position = c(0.75, 0.25), legend.background = element_blank(), legend.key.size = unit(0.4, "cm")) + theme(plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm")) + theme(axis.text.x = element_blank(), axis.text.y = element_blank())
 
-pdf("figure/quad_plot.pdf", width = 3.14, height = 2)
+pdf("figure/05_quad.pdf", width = 3.14, height = 2)
 quad_plot
 dev.off()
 
 ```
-```{r fig.width=3.14, fig.height=2}
+```{r 05_quad fig.width=3.14, fig.height=2}
 quad_plot
 ```
 
@@ -718,11 +718,11 @@ d_lc$Activity   <- as.numeric(as.character(d_lc$Activity))
 
 tile_plot <- ggplot(d_lc, aes(x = Aggression, y = Activity, z = OWS)) +  geom_tile(aes(alpha = OWS), fill = "black", size = 0) + scale_alpha_continuous(range=c(1,0)) + ylab("Activity") + xlab("Aggression") + theme_bw(base_size = 10) + theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank(), panel.background = element_blank(), panel.border = element_rect(linetype = "solid", colour = "black"), axis.ticks = element_blank(), legend.key=element_blank(),strip.background = element_blank()) + guides(linetype = FALSE, size = FALSE, alpha = FALSE)+ theme(plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm"))
 
-pdf("figure/tile.pdf", width = 3.14, height = 3.14)
+pdf("figure/05_tile.pdf", width = 3.14, height = 3.14)
 tile_plot
 dev.off()
 ```
 
-```{r fig.width=3.14, fig.height=3.14}
+```{r 05_tile fig.width=3.14, fig.height=3.14}
 tile_plot
 ```
