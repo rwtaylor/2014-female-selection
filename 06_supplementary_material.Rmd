@@ -42,6 +42,7 @@ library(MASS) # MASS clashes with dplyr... so always load first
 library(pander) # pander clashes with dplyr... so always load first
 set.alignment('right', row.names = 'left')
 panderOptions('table.split.table', Inf)
+panderOptions('table.caption.prefix', "Table S:")
 library(dplyr)
 library(MCMCglmm)
 ```
@@ -253,8 +254,7 @@ row.names(nonlinear_results_mcmc) <- c("Intercept", "Aggression",
  "Aggression^2 x Competition", "Activity^2 x Competition",
  "Docility^2 x Competition", "Agg. x Act. x Competition"
  )
-pandoc.table(nonlinear_results_mcmc[c(1,3,2,4:16), ], 
- split.tables = 160, caption = "Selection on female aggression and docility, through annual reproductive success, interacted significantly with juvenile offspring competition for vacant territories after accounting for behavioural measurement uncertainty. The generalized linear mixed model for annual reproductive success assumed a Poisson error distribution, while the model for offspring overwinter survival assumed a binomial error distribution weighted by fecundity. Random effects for identity and grid-year were included in both models to account for pseudoreplication. Presented are posterior modes of the distribution of coefficients from 1000 models of 1000 sets of individual random effects of each behavioural trait generated with MCMCglmm.")
+pandoc.table(nonlinear_results_mcmc[c(1,3,2,4:16), ], caption = "Selection on female aggression and docility, through annual reproductive success, interacted significantly with juvenile offspring competition for vacant territories after accounting for behavioural measurement uncertainty. The generalized linear mixed model for annual reproductive success assumed a Poisson error distribution, while the model for offspring overwinter survival assumed a binomial error distribution weighted by fecundity. Random effects for identity and grid-year were included in both models to account for pseudoreplication. Presented are posterior modes of the distribution of coefficients from 1000 models of 1000 sets of individual random effects of each behavioural trait generated with MCMCglmm.")
 ```
 
 ## Table S10
@@ -281,8 +281,7 @@ names(coef_p_ars) <- c("Estimate", "SE", "Z", "P", "Est ± se")
 names(coef_p_ows) <- c("Estimate", "SE", "Z", "P", "Est ± se")
 names(coef_p_kpd) <- c("Estimate", "SE", "Z", "P", "Est ± se")
 
-pandoc.table(coef_p_kpd[c(1,3,2,4:16), c(5,3,4)],
- split.tables = 160, caption = "There was no evidence for selection on female behaviour through fecundity. Results from a generalized linear mixed model of fecundity with individual and grid-year as random effects. The model was fitted with a Poisson error distribution. This model ignores uncertainty around the BLUPs used for each indivdiual's behavioral measure.")
+pandoc.table(coef_p_kpd[c(1,3,2,4:16), c(5,3,4)], caption = "There was no evidence for selection on female behaviour through fecundity. Results from a generalized linear mixed model of fecundity with individual and grid-year as random effects. The model was fitted with a Poisson error distribution. This model ignores uncertainty around the BLUPs used for each indivdiual's behavioral measure.")
 ```
 
 ## Figure S1
