@@ -18,6 +18,9 @@ knitr::pandoc('04_temporal_gradients.md')
 knit('05_competition.Rmd')
 knitr::pandoc('05_competition.md')
 
+knit('06_supplementary_material.Rmd')
+knitr::pandoc('06_supplementary_material.md')
+
 ## To combine all analyses into one big file
 system("pandoc --default-image-extension=png --template=templates/html.template --toc --toc-depth=4  -f markdown -t html -o 00_all_analyses.html *.md")
 
