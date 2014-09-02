@@ -93,6 +93,7 @@ pandoc.table(aod, caption =
 ## Table S4
 ```{r s4}
 load("data/analyses_data/sel_grads_mcmc.RData")
+load("data/analyses_data/fit_raneff_data.RData")
 
 N <- fit_raneff_data %>%
   filter(type == "blup") %>%
