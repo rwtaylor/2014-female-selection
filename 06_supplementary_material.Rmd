@@ -9,7 +9,7 @@ t: latex
 s:
 S:
 latex-engine: xelatex
-template: templates/latex.template
+template: templates/latex_supplementary.template
 default-image-extension: pdf
 toc-depth: 4
 toc:
@@ -42,7 +42,6 @@ library(MASS) # MASS clashes with dplyr... so always load first
 library(pander) # pander clashes with dplyr... so always load first
 set.alignment('right', row.names = 'left')
 panderOptions('table.split.table', Inf)
-panderOptions('table.caption.prefix', "Table S:")
 library(dplyr)
 library(MCMCglmm)
 ```
