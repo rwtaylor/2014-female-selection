@@ -180,13 +180,17 @@ mutate(
 ## Sample Sizes
 ```{r samples, results='asis'}
 fit_raneff_data %>%
-  filter(itt == "1") %>%
+  filter(
+    itt == "1" & !is.na(docility) & !is.na(activity) & !is.na(aggression)
+    ) %>%
   group_by(Grid, Year, add = FALSE) %>%
   summarise(n()) %>%
   pandoc.table(.)
   
 fit_raneff_data %>%
-  filter(itt == "1") %>%
+filter(
+  itt == "1" & !is.na(docility) & !is.na(activity) & !is.na(aggression)
+  ) %>%
   group_by(Year, add = FALSE) %>%
   summarise(n()) %>%
   pandoc.table(.)

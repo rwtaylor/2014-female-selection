@@ -1,0 +1,38 @@
+<!--pandoc
+t: html
+default-image-extension: png
+template: templates/html.template
+toc-depth: 4
+toc:
+
+t: latex
+s:
+S:
+latex-engine: xelatex
+template: templates/latex.template
+default-image-extension: pdf
+toc-depth: 4
+toc:
+-->
+
+```{r echo=FALSE, cache=FALSE, results="hide"}
+opts_chunk$set(cache=TRUE, fig.cap='', dev=c('png', 'pdf'), fig.width=6,
+  fig.height=4)
+opts_knit$set('upload.fun' = function(x) sub("\\.[[:alnum:]]*$", "", x) )
+opts_chunk$set(cache.path="cache/05/")
+```
+
+# Supplementary Material
+Supplementary material for:
+R. W. Taylor, M. M. Humphries, S. Boutin, J. C. Gorrell, D. W. Coltman, and A. G. McAdam. Selection on female behaviour fluctuates with offspring environment. Journal of Evolutionary Biology, 2014.
+
+Data and code used in the analyses are available on github (https://github.com/rwtaylor/2014-female-selection) and archived on Zenodo (http://dx.doi.org/10.5281/zenodo.10908)
+
+
+```{r load_packages, cache=FALSE}
+library(MASS) # MASS clashes with dplyr... so always load first
+library(pander) # pander clashes with dplyr... so always load first
+set.alignment('right', row.names = 'left')
+library(dplyr)
+library(MCMCglmm)
+```

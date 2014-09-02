@@ -714,6 +714,17 @@ p + theme(plot.margin = unit(c(0.1, 0.1, 0.1, 0.1), "cm"))
 
 ### Summary Statistics
 ```{r summary_blup, results='asis'}
+library(dplyr)
+sign_change <- function(x){
+  # sign changes calculated as the number of changes in direction between 
+  # successive years relative to n−1
+  s <- sign(x)
+  sum(s[1:(length(s)-1)] != s[-1])/(length(s)-1)
+}
+se <- function(lower, upper){
+  (upper - lower) / 3.92
+}
+
 sum_stats_blup <- sel_grads_blup %>%
 filter(standardization == "SD") %>%
 group_by(variable, add = FALSE) %>%

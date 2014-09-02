@@ -526,7 +526,7 @@ table_summary <- data.frame(
   Across = c(d(agRv_a), d(acRv_a), d(dRv_a)),
   Within = c(d(agRv_w), d(acRv_w), d(dRv_w))
   )
-
+save(table_summary, file = "mcmc_repeatability_summary.RData")
 pandoc.table(table_summary, caption = "Summary of repeatabilities")
 ```
 
