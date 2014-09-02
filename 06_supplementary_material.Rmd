@@ -17,7 +17,7 @@ toc:
 
 ```{r echo=FALSE, cache=FALSE, results="hide"}
 opts_chunk$set(echo = FALSE, fig.cap='', dev=c('png', 'pdf'), fig.width=6,
-  fig.height=4, results='as.is', cache=FALSE)
+  fig.height=4, results='asis', cache=FALSE)
 opts_knit$set('upload.fun' = function(x) sub("\\.[[:alnum:]]*$", "", x) )
 ```
 
@@ -25,6 +25,8 @@ opts_knit$set('upload.fun' = function(x) sub("\\.[[:alnum:]]*$", "", x) )
 Supplementary material for:
 
 R. W. Taylor, M. M. Humphries, S. Boutin, J. C. Gorrell, D. W. Coltman, and A. G. McAdam. Selection on female behaviour fluctuates with offspring environment. Journal of Evolutionary Biology, 2014.
+
+
 
 Data and code used in the analyses are available on github
 
