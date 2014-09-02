@@ -689,8 +689,7 @@ quad_plot
 ```
 
 #### Tile plot of interaction
-```{r tile_plot, tidy=TRUE, tidy.opts=list(keep.blank.line=TRUE, width.cutoff=60)}
-
+```{r tile_plot, tidy=TRUE, tidy.opts=list(blank=TRUE, width.cutoff=60)}
 n = 12
 e <- Effect(c("aggression_s", "activity_s", "competition_s"), g.ows,
   xlevels = list(aggression_s = n, activity_s = n, competition_s = 2))
