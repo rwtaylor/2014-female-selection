@@ -293,8 +293,9 @@ row.names(coef_p_kpd) <- term_names
 names(coef_p_ars) <- c("Estimate", "SE", "Z", "P", "Est ± se")
 names(coef_p_ows) <- c("Estimate", "SE", "Z", "P", "Est ± se")
 names(coef_p_kpd) <- c("Estimate", "SE", "Z", "P", "Est ± se")
+set.alignment('right', row.names = 'left')
 
-pandoc.table(coef_p_kpd[c(1,3,2,4:16), c(5,3,4)], caption = "There was no evidence for selection on female behaviour through fecundity. Results from a generalized linear mixed model of fecundity with individual and grid-year as random effects. The model was fitted with a Poisson error distribution. This model ignores uncertainty around the BLUPs used for each indivdiual's behavioral measure.")
+pandoc.table(coef_p_kpd[c(1,3,2,4:16), c(5,3,4)], caption = "There was no evidence for selection on female behaviour through fecundity. Results from a generalized linear mixed model of fecundity with individual and grid-year as random effects. The model was fitted with a Poisson error distribution. This model ignores uncertainty around the BLUPs used for each indivdiual's behavioural measure.")
 ```
 
 ## Figure S1
