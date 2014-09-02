@@ -253,12 +253,26 @@ row.names(nonlinear_results_mcmc) <- c("Intercept", "Aggression",
  "Aggression^2 x Competition", "Activity^2 x Competition",
  "Docility^2 x Competition", "Agg. x Act. x Competition"
  )
+set.alignment('right', row.names = 'left')
+ 
 pandoc.table(nonlinear_results_mcmc[c(1,3,2,4:16), ], caption = "Selection on female aggression and docility, through annual reproductive success, interacted significantly with juvenile offspring competition for vacant territories after accounting for behavioural measurement uncertainty. The generalized linear mixed model for annual reproductive success assumed a Poisson error distribution, while the model for offspring overwinter survival assumed a binomial error distribution weighted by fecundity. Random effects for identity and grid-year were included in both models to account for pseudoreplication. Presented are posterior modes of the distribution of coefficients from 1000 models of 1000 sets of individual random effects of each behavioural trait generated with MCMCglmm.")
 ```
 
 ## Table S10
 ```{r s10}
 load("data/analyses_data/nl.blup_models.RData")
+
+getLmerParams <- function(x){
+  coefs <- summary(x)$coefficients
+  coef.table <- data.frame(format(coefs[ ,1:3], digits = 1, nsmall = 2, 
+    scientific = FALSE))
+  coef.table$pval[coefs[ ,4] > 0.001] <- format(coefs[coefs[ ,4] > 0.001, 4], 
+    digits = 1, nsmall = 2)
+  coef.table$pval[coefs[ ,4] < 0.001] <- "< 0.001"
+  coef.table$coefs <- paste(coef.table$Estimate, " ±", coef.table$Std..Error, 
+    sep = '')
+  return(coef.table)
+}
 
 coef_p_ars <- getLmerParams(ars_nl_model)
 coef_p_ows <- getLmerParams(ows_nl_model)
