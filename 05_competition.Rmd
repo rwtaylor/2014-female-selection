@@ -641,7 +641,7 @@ pandoc.table(coef_p_kpd[c(1,3,2,4:16), c(5,3,4)],
 ```
 
 #### Plot of quadratic interaction
-```{r figures_blups, tidy=TRUE, tidy_source=list(blank=TRUE, width.cutoff=60), cache=FALSE}
+```{r figures_blups, tidy=TRUE, tidy.opts=list(blank=TRUE, width.cutoff=60), cache=FALSE}
 library(effects)
 library(ggplot2)
 
@@ -689,7 +689,7 @@ quad_plot
 ```
 
 #### Tile plot of interaction
-```{r tile_plot, tidy=TRUE, tidy_source=list(blank=TRUE, width.cutoff=60), cache=FALSE}
+```{r tile_plot, tidy=TRUE, tidy.opts=list(blank=TRUE, width.cutoff=60), cache=FALSE}
 n = 12
 e <- Effect(c("aggression_s", "activity_s", "competition_s"), g.ows,
   xlevels = list(aggression_s = n, activity_s = n, competition_s = 2))
