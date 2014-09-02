@@ -72,7 +72,7 @@ save(mis_data, mis_sub_data, file = "data/analyses_data/mis_sub.Rdata")
 ```
 ### Bartlett's test & KMO
 
-```{r bartlett}
+```{r 01_bartlett}
 load("data/analyses_data/mis_sub.Rdata")
 n_trials <- mis_data %>% ungroup() %>% summarise(n = n())
 mis_KMO_Bart <- mis_sub_data %>%
@@ -110,7 +110,7 @@ The data are not multi-normal. In our case this isn't a major problem because we
 ### Pseudo-replication
 Because our data contains multiple records per individual we will check to be sure pesudo-replication isn't having a large effect on the PCA loadings.
 
-```{r misPCA}
+```{r 01_misPCA}
 load("data/analyses_data/mis_sub.Rdata")
 # Calculate PCA for subsampled data
 mis_pca <- foreach(i = 1:100, .combine = rbind) %do% {
@@ -182,7 +182,7 @@ save(of_data, of_sub_data, file = "data/analyses_data/of_sub_data.RData")
 
 ### Bartlett's test & KMO
 
-```{r of_bartlett}
+```{r 01_of_bartlett}
 load("data/analyses_data/of_sub_data.RData")
 n_trials <- of_data %>% summarise(n = n())
 of_KMO_Bart <- of_sub_data %>%
@@ -210,7 +210,7 @@ The overall measure of sampling adequecy is a bit low, maybe..., (MSA = `r mean(
 Lets take a closer look at the KMO test.
 
 
-```{r closer_look_KMO}
+```{r 01_closer_look_KMO}
 load("data/analyses_data/of_sub_data.RData")
 kmo_of <- foreach(i = 1:100, .combine = 'rbind') %do% {
   foo <- of_sub_data %>% ungroup() %>% filter(itt == i)
@@ -237,7 +237,7 @@ The open field data are also not multi-normal (P = `r mshapiro.test(t(as.matrix(
 ### Pseudo-replication
 Because our data contains multiple records per individual we will check to be sure pesudo-replication isn't having a large effect on the PCA loadings.
 
-```{r ofPCA}
+```{r 01_ofPCA}
 load("data/analyses_data/of_sub_data.RData")
 # Calculate PCA for subsampled data
 of_pca <- foreach(i = 1:100, .combine = rbind) %do% {

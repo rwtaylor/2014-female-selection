@@ -660,7 +660,7 @@ save(raneffs_blups, file = "data/analyses_data/raneffs_blups.RData")
 ```
 ## Model Diagnostics
 ### Docility
-```{r docility_diagnostics, fig.cap=''}
+```{r 02_docility_diagnostics, fig.cap=''}
 load("data/analyses_data/doc_mcmc_model.RData")
 autocorr.diag(doc_mcmc_model$VCV)
 geweke.diag(doc_mcmc_model$VCV)
@@ -669,7 +669,7 @@ plot(doc_mcmc_model$VCV)
 ```
 
 ### Aggression
-```{r aggression_diagnostics, fig.cap=''}
+```{r 02_aggression_diagnostics, fig.cap=''}
 load("data/analyses_data/agg_mcmc_model.RData")
 autocorr.diag(agg_mcmc_model$VCV)
 geweke.diag(agg_mcmc_model$VCV)
@@ -678,7 +678,7 @@ plot(agg_mcmc_model$VCV)
 ```
 
 ### Activity
-```{r activity_diagnostics, fig.cap=''}
+```{r 02_activity_diagnostics, fig.cap=''}
 load("data/analyses_data/act_mcmc_model.RData")
 autocorr.diag(act_mcmc_model$VCV)
 geweke.diag(act_mcmc_model$VCV)
