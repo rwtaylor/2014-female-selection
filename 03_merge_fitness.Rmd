@@ -42,22 +42,8 @@ fitness <- tbl_df(fitness)
 ```{r merge_fitness }
 fitness$ID <- as.character(fitness$ID)
 fit_raneff_data <- inner_join(fitness, raneffs_blups, by = "ID")
-fit_raneff_data
-```
-
-## Merge fitness with pca & docility repeated mesures data
-
-```{r merge_repeated}
-load("data/analyses_data/pca.RData")
-pca_to_merge <- pca_data %>%
-  filter(Sex == "F") %>%
-  select(ID, Year, Grid, julian, Obs, docility = docil, handlevent_year,
-    trial_life, trial_year, aggression = misPC1, activity = ofPC1)
-
-## Can't use dplyr join because need outer join
-fit_behav_data <- merge(pca_to_merge, fitness %>%
-  select(-Sex), by = c("ID", "Year", "Grid"), all = TRUE)
-fit_behav_data <- tbl_df(fit_behav_data)
+fit_raneff_data <- fit_raneff_data %>%
+  filter(!is.na(docility) & !is.na(aggression) & !is.na(activity))
 ```
 
 ## Relative Fitness
@@ -74,14 +60,6 @@ fit_raneff_data <- fit_raneff_data %>% mutate(prop = ars_all/kprod)
 
 fit_raneff_data <- fit_raneff_data %>%
   group_by(Grid, Year, itt) %>%
-  mutate(rel_ars = ars_all / mean(ars_all),
-   rel_kpd = kprod / mean(kprod),
-   rel_ows = prop / mean(prop)
-   )
-
-fit_behav_data <- fit_behav_data %>% mutate(prop = ars_all/kprod)
-fit_behav_data <- fit_behav_data %>%
-  group_by(Grid, Year) %>%
   mutate(rel_ars = ars_all / mean(ars_all),
    rel_kpd = kprod / mean(kprod),
    rel_ows = prop / mean(prop)
@@ -180,17 +158,13 @@ mutate(
 ## Sample Sizes
 ```{r samples, results='asis'}
 fit_raneff_data %>%
-  filter(
-    itt == "1" & !is.na(docility) & !is.na(activity) & !is.na(aggression)
-    ) %>%
+  filter(itt == "1") %>%
   group_by(Grid, Year, add = FALSE) %>%
   summarise(n()) %>%
   pandoc.table(.)
   
 fit_raneff_data %>%
-filter(
-  itt == "1" & !is.na(docility) & !is.na(activity) & !is.na(aggression)
-  ) %>%
+filter(itt == "1") %>%
   group_by(Year, add = FALSE) %>%
   summarise(n()) %>%
   pandoc.table(.)
