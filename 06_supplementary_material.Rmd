@@ -17,7 +17,7 @@ toc:
 
 ```{r echo=FALSE, cache=FALSE, results="hide"}
 opts_chunk$set(echo = FALSE, fig.cap='', dev=c('png', 'pdf'), fig.width=6,
-  fig.height=4, results='asis', cache=FALSE)
+  fig.height=4, results='asis', cache=FALSE, message=FALSE)
 opts_knit$set('upload.fun' = function(x) sub("\\.[[:alnum:]]*$", "", x) )
 ```
 
@@ -85,6 +85,7 @@ p.format <- function(x){
 aod[ ,3] <- p.format(aod[ ,3])
 row.names(aod) <- c("Year", "Grid", "Activity", "Aggression", "Docility",
   "Year x Activity", "Year x Aggression", "Year x Docility")
+set.alignment('right', row.names = 'left')
 pandoc.table(aod, caption = 
   "Generalized linear mixed model results showing the interactions between year and the behavioural traits (BLUPs). Significance was calculated with Wald tests from an analysis of deviance. GLMMs were fitted with squirrel identity as a random effect and assumed a Poisson error distribution.")
 ```
