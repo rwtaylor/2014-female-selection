@@ -203,7 +203,14 @@ pandoc.table(
   data.frame(Year = N$Year, N = N[ ,2], Aggression = sgt_agg$coef,
     Acitivity = sgt_act$coef, Docility = sgt_doc$coef
   ),
-  caption = "Variance standardized selection gradients (accounting for behavioural uncertainty)."
+  caption = "Non-standardized selection gradients (accounting for behavioural uncertainty)."
+  )
+
+pandoc.table(
+  data.frame(Year = N$Year, N = N[ ,2], Aggression = sgt_agg_sd$coef,
+    Acitivity = sgt_act_sd$coef, Docility = sgt_doc_sd$coef
+  ),
+  caption = "SD-standardized selection gradients (accounting for behavioural uncertainty)."
   )
 
 pandoc.table(
@@ -212,12 +219,6 @@ pandoc.table(
   caption = "Mean standardized selection gradients (accounting for behavioural uncertainty)."
   )
 
-pandoc.table(
-  data.frame(Year = N$Year, N = N[ ,2], Aggression = sgt_ns_agg$coef,
-    Acitivity = sgt_ns_act$coef, Docility = sgt_ns_doc$coef
-  ),
-  caption = "Non-standardized selection gradients (accounting for behavioural uncertainty)."
-  )
 ```
 
 ### Plots
