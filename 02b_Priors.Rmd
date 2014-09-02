@@ -19,6 +19,7 @@ toc:
 opts_chunk$set(cache=TRUE, fig.cap='', dev=c('png', 'pdf'), fig.width=6,
   fig.height=4)
 opts_knit$set('upload.fun' = function(x) sub("\\.[[:alnum:]]*$", "", x) ) 
+opts_chunk$set(cache.path='cache/02b/')
 ```
 # Assessing the effect of priors on BLUPs
 
