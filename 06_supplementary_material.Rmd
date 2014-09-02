@@ -16,7 +16,7 @@ toc:
 -->
 
 ```{r echo=FALSE, cache=FALSE, results="hide"}
-opts_chunk$set(cache=TRUE, fig.cap='', dev=c('png', 'pdf'), fig.width=6,
+opts_chunk$set(echo = FALSE, fig.cap='', dev=c('png', 'pdf'), fig.width=6,
   fig.height=4)
 opts_knit$set('upload.fun' = function(x) sub("\\.[[:alnum:]]*$", "", x) )
 opts_chunk$set(cache.path="cache/05/")
@@ -36,3 +36,16 @@ set.alignment('right', row.names = 'left')
 library(dplyr)
 library(MCMCglmm)
 ```
+
+```{r s1}
+load("mcmc_repeatability_summary.RData")
+table_summary <- as.matrix(table_summary)
+dimnames(table_summary)[[2]] <- c("Behavior", "Overall Repeatability", "Repeatability Within Years", "Repeatability Across Years")
+pandoc.table(table_summary, caption = "Repeatability within and across years. Repeatabilities were estimated using linear mixed effects models with individual as a random effect. Repeatability across years was estimated after randomly sampling, for each individual, only one behavioural measure per year.")
+```
+
+```{r s2}
+load("data/analyses_data/fit_raneff_data.RData")
+fit_data <- fit_raneff_data %>% filter(type == "blup") %>% filter(!is.na(aggression) & !is.na(activity) & !is.na(docility))
+```
+
