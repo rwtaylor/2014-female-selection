@@ -269,7 +269,7 @@ p <- p + geom_text(aes(x = Year, y = lower, group = variable,
   position = position_dodge(width = 0.5), size = 5)
 p_sel_grad_MCMC <- p + ylim(c(-1.1,1.4))
 
-pdf(file = "figure/04_sg_mcmc_SD.pdf", width = 4.33, height = 3)
+pdf(file = "figure/04_sg_mcmc_SD_print.pdf", width = 4.33, height = 3)
 p_sel_grad_MCMC
 dev.off()
 p_sel_grad_MCMC
@@ -324,7 +324,7 @@ p <- p + geom_text(aes(x = Year, y = lower, group = variable,
   position = position_dodge(width = 0.5), size = 5)
 p_sel_grad_MCMC <- p + ylim(c(-1.1,1.4))
 
-pdf(file = "figure/04_sg_mcmc_NS.pdf", width = 4.33, height = 3)
+pdf(file = "figure/04_sg_mcmc_NS_print.pdf", width = 4.33, height = 3)
 p_sel_grad_MCMC
 dev.off()
 p_sel_grad_MCMC
@@ -593,7 +593,7 @@ sel_grads_blup$upper_sig_01_star[sel_grads_blup$coefficients > 0
 sel_grads_blup$lower_sig_01_star[sel_grads_blup$coefficients < 0
   & sel_grads_blup$upper < 0] <- ""
 
-pdf(file = "figure/04_sg_blup_SD.pdf", width = 4.33, height = 3)
+pdf(file = "figure/04_sg_blup_SD_print.pdf", width = 4.33, height = 3)
 p <- p_sel_grad_MCMC %+% filter(sel_grads_blup, standardization == "SD")
 p <- p + ylab("Coefficient ± 0.95 Confidence Interval")
 p <- p + geom_text(aes(x = Year, y = upper, group = variable,
