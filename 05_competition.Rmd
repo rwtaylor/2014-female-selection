@@ -684,7 +684,7 @@ quad_plot
 dev.off()
 
 ```
-```{r 05_quad fig.width=3.14, fig.height=2}
+```{r 05_quad, fig.width=3.14, fig.height=2}
 quad_plot
 ```
 
@@ -723,6 +723,6 @@ tile_plot
 dev.off()
 ```
 
-```{r 05_tile fig.width=3.14, fig.height=3.14}
+```{r 05_tile, fig.width=3.14, fig.height=3.14}
 tile_plot
 ```
