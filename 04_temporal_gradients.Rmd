@@ -618,7 +618,7 @@ p
 ```
 
 ### Correlations
-```{r 04_sg_correlations_mcmc, fig.width=5, fig.height=5}
+```{r 04_sg_correlations_blup, fig.width=5, fig.height=5}
 load("data/analyses_data/sel_grads_blup.RData")
 sel_grads_blup_flat <- data.frame(
   Aggression = filter(sel_grads_blup, standardization == "SD" &
