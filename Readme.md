@@ -1,4 +1,4 @@
-# Fluctuating selection on behaviour in a wild population of red squirrels
+# Selection on female behaviour fluctuates with offspring environment.
 
 [![DOI](https://zenodo.org/badge/5166/rwtaylor/2014-female-selection.png)](http://dx.doi.org/10.5281/zenodo.10908)
 
