@@ -3,7 +3,9 @@
 installed.pkgs <- installed.packages()[ ,"Package"]
 
 # CRAN packages
-required.pkgs <- c("devtools", "MCMCglmm","lme4", "foreach", "doMC", "psych", "ggplot2", "GGally", "ggthemes", "knitr", "pander", "mvnormtest", "car", "grid", "effects")
+required.pkgs <- c("devtools", "MCMCglmm","lme4", "foreach", "doMC", "psych", 
+"ggplot2", "GGally", "ggthemes", "knitr", "pander", "mvnormtest", "car", 
+"grid", "effects", "arm")
 
 
 new.pkgs <- required.pkgs[!required.pkgs %in% installed.pkgs]

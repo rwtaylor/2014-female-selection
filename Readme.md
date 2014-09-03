@@ -24,6 +24,7 @@ The analysis is split into 6 sections as seprate knitr markdown files. [Knitr](h
         knit('03_merge_fitness.Rmd')
         knit('04_temporal_gradients.Rmd')
         knit('05_competition.Rmd') # 1 hour on a 12 core machine
+        knit('06_supplementary_material.Rmd') # just repackage some results
       
   3. To convert the resulting markdown files into html or pdfs, you will need [Pandoc](http://johnmacfarlane.net/pandoc/) and, additionally, [LaTeX](https://www.tug.org/texlive/) for pdfs. Knitr has a nice convenience function to call pandoc from within R.
 
@@ -33,6 +34,7 @@ The analysis is split into 6 sections as seprate knitr markdown files. [Knitr](h
         knitr::pandoc('03_merge_fitness.md')
         knitr::pandoc('04_temporal_gradients.md')
         knitr::pandoc('05_competition.md')
+        knitr::pandoc('06_supplementary_material.md')
   
   4. Pandoc can combine all analyses into one html or pdf
         
