@@ -1,0 +1,1109 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="generator" content="pandoc">
+  <title></title>
+  <style type="text/css">code{white-space: pre;}</style>
+  <!--[if lt IE 9]>
+    <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+  <![endif]-->
+  <style type="text/css">
+table.sourceCode, tr.sourceCode, td.lineNumbers, td.sourceCode {
+  margin: 0; padding: 0; vertical-align: baseline; border: none; }
+table.sourceCode { width: 100%; line-height: 100%; }
+td.lineNumbers { text-align: right; padding-right: 4px; padding-left: 4px; color: #aaaaaa; border-right: 1px solid #aaaaaa; }
+td.sourceCode { padding-left: 5px; }
+code > span.kw { color: #007020; font-weight: bold; }
+code > span.dt { color: #902000; }
+code > span.dv { color: #40a070; }
+code > span.bn { color: #40a070; }
+code > span.fl { color: #40a070; }
+code > span.ch { color: #4070a0; }
+code > span.st { color: #4070a0; }
+code > span.co { color: #60a0b0; font-style: italic; }
+code > span.ot { color: #007020; }
+code > span.al { color: #ff0000; font-weight: bold; }
+code > span.fu { color: #06287e; }
+code > span.er { color: #ff0000; font-weight: bold; }
+body {max-width:600px; padding:10px;}
+  </style>
+</head>
+<body>
+<nav id="TOC">
+<ul>
+<li><a href="#random-effects-blups-repeatability">Random Effects, BLUPs &amp; Repeatability</a><ul>
+<li><a href="#docility">Docility</a><ul>
+<li><a href="#docility-repeatability">Docility Repeatability</a></li>
+<li><a href="#docility-repeatability-across-years">Docility Repeatability Across Years</a></li>
+<li><a href="#docility-repeatabiltiy-within-years">Docility Repeatabiltiy Within Years</a></li>
+</ul></li>
+<li><a href="#aggression">Aggression</a><ul>
+<li><a href="#aggression-repeatability">Aggression Repeatability</a></li>
+<li><a href="#aggression-repeatability-across-years">Aggression Repeatability Across Years</a></li>
+<li><a href="#aggression-repeatabiltiy-within-years">Aggression Repeatabiltiy Within Years</a></li>
+</ul></li>
+<li><a href="#activity">Activity</a><ul>
+<li><a href="#activity-repeatability">Activity Repeatability</a></li>
+<li><a href="#activity-repeatability-across-years">Activity Repeatability Across Years</a></li>
+<li><a href="#activity-repeatabiltiy-within-years">Activity Repeatabiltiy Within Years</a></li>
+</ul></li>
+<li><a href="#repeatability-summary">Repeatability Summary</a></li>
+<li><a href="#run-lmer-models">Run lmer models</a><ul>
+<li><a href="#docility-1">Docility</a></li>
+<li><a href="#aggression-1">Aggression</a></li>
+<li><a href="#activity-1">Activity</a></li>
+</ul></li>
+<li><a href="#extract-random-effects-blups">Extract random effects / BLUPs</a><ul>
+<li><a href="#from-mcmcglmm-models">from MCMCglmm models</a></li>
+<li><a href="#from-lmer-models">from lmer models</a></li>
+<li><a href="#rbind-mcmc-raneffs-and-blups">rbind MCMC raneffs and BLUPs</a></li>
+<li><a href="#rescale-docility-raneffs-blups">Rescale docility raneffs &amp; BLUPs</a></li>
+</ul></li>
+<li><a href="#model-diagnostics">Model Diagnostics</a><ul>
+<li><a href="#docility-2">Docility</a></li>
+<li><a href="#aggression-2">Aggression</a></li>
+<li><a href="#activity-2">Activity</a></li>
+</ul></li>
+</ul></li>
+</ul>
+</nav>
+
+
+
+<!--pandoc
+t: html
+default-image-extension: png
+template: templates/html.template
+toc-depth: 4
+toc:
+
+t: latex
+s:
+S:
+latex-engine: xelatex
+template: templates/latex.template
+default-image-extension: pdf
+toc-depth: 4
+toc:
+-->
+
+
+<h1 id="random-effects-blups-repeatability">Random Effects, BLUPs &amp; Repeatability</h1>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">library</span>(MASS) <span class="co"># MASS clashes with dplyr... so always load first</span>
+<span class="kw">library</span>(pander) <span class="co"># pander clashes with dplyr... so always load first</span>
+<span class="kw">set.alignment</span>(<span class="st">&#39;right&#39;</span>, <span class="dt">row.names =</span> <span class="st">&#39;left&#39;</span>)
+<span class="kw">library</span>(dplyr)
+<span class="kw">library</span>(MCMCglmm)
+<span class="kw">load</span>(<span class="st">&quot;data/analyses_data/pca.RData&quot;</span>)
+
+doc_data &lt;-<span class="st"> </span>pca_data %&gt;%<span class="st"> </span><span class="kw">filter</span>(!<span class="kw">is.na</span>(docil))
+agg_data &lt;-<span class="st"> </span>pca_data %&gt;%<span class="st"> </span><span class="kw">filter</span>(!<span class="kw">is.na</span>(misPC1))
+act_data &lt;-<span class="st"> </span>pca_data %&gt;%<span class="st"> </span><span class="kw">filter</span>(!<span class="kw">is.na</span>(ofPC1))
+
+thin &lt;-<span class="st"> </span><span class="dv">500</span>
+burnin &lt;-<span class="st"> </span>thin *<span class="st"> </span><span class="dv">100</span>
+nitt &lt;-<span class="st"> </span>burnin +<span class="st"> </span>thin *<span class="st"> </span><span class="dv">1000</span></code></pre>
+<h2 id="docility">Docility</h2>
+<p>Models with covariates for the behavioral tests as fixed effects and ID as a random effect. Covariates include the julian day of the test (continuous), the observer who administered the test (factor) and the handling event number for the year (continuous). We will save 1000 samples from the posterior distribution.</p>
+<p>Setting pr = TRUE in MCMCglmm saves the posterior distribution of random effects.</p>
+<pre class="sourceCode r"><code class="sourceCode r">prior &lt;-<span class="st"> </span><span class="kw">list</span>(
+  <span class="dt">G =</span> <span class="kw">list</span>(<span class="dt">G1 =</span> <span class="kw">list</span>(<span class="dt">V =</span> <span class="kw">var</span>(doc_data$docil, <span class="dt">na.rm =</span> <span class="ot">TRUE</span>), <span class="dt">nu =</span> <span class="fl">1.002</span>)), 
+  <span class="dt">R =</span> <span class="kw">list</span>(<span class="dt">V =</span> <span class="kw">var</span>(doc_data$docil, <span class="dt">na.rm =</span> <span class="ot">TRUE</span>), <span class="dt">nu =</span> <span class="fl">0.002</span>)
+  )
+
+time_start &lt;-<span class="st"> </span><span class="kw">Sys.time</span>()
+doc_mcmc_model &lt;-<span class="st"> </span><span class="kw">MCMCglmm</span>(docil ~<span class="st"> </span>julian +<span class="st"> </span>Obs +<span class="st"> </span>handlevent_year +
+<span class="st">                            </span><span class="kw">I</span>(handlevent_year^<span class="dv">2</span>),
+                     <span class="dt">random =</span> ~<span class="st"> </span>ID,
+                     <span class="dt">prior =</span> prior,
+                     <span class="dt">pr =</span> <span class="ot">TRUE</span>,
+                     <span class="dt">data =</span> doc_data,
+                     <span class="dt">thin =</span> thin,
+                     <span class="dt">burnin =</span> burnin,
+                     <span class="dt">nitt =</span> nitt,
+                     <span class="dt">verbose =</span> <span class="ot">FALSE</span>
+                     )
+<span class="kw">print</span>(<span class="kw">paste</span>(<span class="st">&quot;Approx. model run time: &quot;</span>, <span class="kw">format</span>(<span class="kw">Sys.time</span>() -<span class="st"> </span>time_start)))</code></pre>
+<pre><code>## [1] &quot;Approx. model run time:  26.52 mins&quot;</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">save</span>(doc_mcmc_model, <span class="dt">file =</span> <span class="st">&quot;data/analyses_data/doc_mcmc_model.RData&quot;</span>)</code></pre>
+<h3 id="docility-repeatability">Docility Repeatability</h3>
+<p>Repeatability is the ratio of the between individual variance to the total variance of the trait (within and between individual variance).</p>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">load</span>(<span class="st">&quot;data/analyses_data/doc_mcmc_model.RData&quot;</span>)
+
+PM_HPD &lt;-<span class="st"> </span>function(x){
+  <span class="co"># Get the posterior mode and HPD interval for a posterior distribution</span>
+  out &lt;-<span class="st"> </span><span class="kw">posterior.mode</span>(x)
+  out[<span class="dv">2</span>:<span class="dv">3</span>] &lt;-<span class="st"> </span><span class="kw">HPDinterval</span>(x)
+  <span class="kw">return</span>(out)
+}
+
+format_PM_HPD &lt;-<span class="st"> </span>function(x){
+  fx &lt;-<span class="st"> </span><span class="kw">format</span>(x, <span class="dt">digits =</span> <span class="dv">2</span>, <span class="dt">nsmall =</span> <span class="dv">2</span>)
+  out &lt;-<span class="st"> </span>fx[[<span class="dv">1</span>]]
+  out[<span class="dv">2</span>] &lt;-<span class="st"> </span><span class="kw">paste</span>(<span class="st">&quot;(&quot;</span>, fx[<span class="dv">2</span>], <span class="st">&quot; – &quot;</span>, fx[<span class="dv">3</span>], <span class="st">&quot;)&quot;</span>, <span class="dt">sep =</span> <span class="st">&#39;&#39;</span>)
+  <span class="kw">return</span>(out)
+}
+
+doc_I_var &lt;-<span class="st"> </span><span class="kw">PM_HPD</span>(doc_mcmc_model$VCV[ ,<span class="st">&quot;ID&quot;</span>])
+doc_P_var &lt;-<span class="st"> </span><span class="kw">PM_HPD</span>(<span class="kw">mcmc</span>(<span class="kw">rowSums</span>(doc_mcmc_model$VCV)))
+doc_rep &lt;-<span class="st"> </span>doc_I_var /<span class="st"> </span>doc_P_var
+
+dIv &lt;-<span class="st"> </span><span class="kw">format_PM_HPD</span>(doc_I_var)
+dPv &lt;-<span class="st"> </span><span class="kw">format_PM_HPD</span>(doc_P_var)
+dRv &lt;-<span class="st"> </span><span class="kw">format_PM_HPD</span>(doc_rep)
+
+doc_table &lt;-<span class="st"> </span><span class="kw">data.frame</span>(
+   <span class="dt">Parameter  =</span> <span class="kw">c</span>(<span class="st">&quot;ID Variance&quot;</span>, <span class="st">&quot;Phen. Variance&quot;</span>, <span class="st">&quot;Repeatability&quot;</span>),
+  <span class="st">&quot;Post Mode&quot;</span> =<span class="st"> </span><span class="kw">c</span>(dIv[<span class="dv">1</span>], dPv[<span class="dv">1</span>], dRv[<span class="dv">1</span>]),
+  <span class="st">&quot;Cred Int.&quot;</span> =<span class="st"> </span><span class="kw">c</span>(dIv[<span class="dv">2</span>], dPv[<span class="dv">2</span>], dRv[<span class="dv">2</span>])
+  )
+
+<span class="kw">pandoc.table</span>(doc_table, <span class="dt">caption =</span> <span class="st">&quot;Docility repeatability using all trials&quot;</span>)</code></pre>
+<table>
+<caption>Docility repeatability using all trials</caption>
+<col width="20%" />
+<col width="16%" />
+<col width="20%" />
+<thead>
+<tr class="header">
+<th align="right">Parameter</th>
+<th align="right">Post.Mode</th>
+<th align="right">Cred.Int.</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="right">ID Variance</td>
+<td align="right">19.95</td>
+<td align="right">(16.63 – 22.25)</td>
+</tr>
+<tr class="even">
+<td align="right">Phen. Variance</td>
+<td align="right">53.17</td>
+<td align="right">(49.79 – 55.76)</td>
+</tr>
+<tr class="odd">
+<td align="right">Repeatability</td>
+<td align="right">0.38</td>
+<td align="right">(0.33 – 0.40)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="docility-repeatability-across-years">Docility Repeatability Across Years</h3>
+<p>The above model treats repeated measures within a year the same as repeated measures across years (both exist in the dataset). Next we will subset the data to include only across year repeated measures.</p>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">load</span>(<span class="st">&quot;data/analyses_data/doc_mcmc_model.RData&quot;</span>)
+<span class="co"># Split the dataset into within and across year sets</span>
+<span class="co"># We will select one random trial for each squirrel from each year</span>
+## Now split into groups of ID &amp; Year and sample one trial at random
+
+doc_data_across &lt;-<span class="st"> </span>doc_data %&gt;%
+<span class="st">  </span><span class="kw">group_by</span>(ID, Year) %&gt;%
+<span class="st">  </span>dplyr:::<span class="kw">sample_n.grouped_df</span>(<span class="dv">1</span>)
+
+<span class="co"># Run model again</span>
+
+prior &lt;-<span class="st"> </span><span class="kw">list</span>(
+  <span class="dt">G =</span> <span class="kw">list</span>(<span class="dt">G1 =</span> <span class="kw">list</span>(<span class="dt">V =</span> <span class="kw">var</span>(doc_data_across$docil, <span class="dt">na.rm =</span> <span class="ot">TRUE</span>), <span class="dt">nu =</span> <span class="fl">1.002</span>)),
+  <span class="dt">R =</span> <span class="kw">list</span>(<span class="dt">V =</span> <span class="kw">var</span>(doc_data_across$docil, <span class="dt">na.rm =</span> <span class="ot">TRUE</span>), <span class="dt">nu =</span> <span class="fl">1.002</span>)
+  )
+prior &lt;-<span class="st"> </span><span class="kw">list</span>(
+  <span class="dt">G =</span> <span class="kw">list</span>(<span class="dt">G1 =</span> <span class="kw">list</span>(<span class="dt">V =</span> <span class="kw">var</span>(doc_data_across$docil, <span class="dt">na.rm =</span> <span class="ot">TRUE</span>), <span class="dt">nu =</span> <span class="fl">1.002</span>)),
+  <span class="dt">R =</span> <span class="kw">list</span>(<span class="dt">V =</span> <span class="kw">var</span>(doc_data_across$docil, <span class="dt">na.rm =</span> <span class="ot">TRUE</span>), <span class="dt">nu =</span> <span class="fl">1.002</span>)
+)
+
+time_start &lt;-<span class="st"> </span><span class="kw">Sys.time</span>()
+
+doc_mcmc_model_across &lt;-<span class="st"> </span><span class="kw">MCMCglmm</span>(docil ~<span class="st"> </span>julian +<span class="st"> </span>Obs +<span class="st"> </span>handlevent_year +<span class="st"> </span>
+<span class="st">                                    </span><span class="kw">I</span>(handlevent_year^<span class="dv">2</span>),
+                            <span class="dt">random =</span> ~<span class="st"> </span>ID,
+                            <span class="dt">prior =</span> prior,
+                            <span class="dt">pr =</span> <span class="ot">TRUE</span>,
+                            <span class="dt">data =</span> <span class="kw">ungroup</span>(doc_data_across),
+                            <span class="dt">thin =</span> thin,
+                            <span class="dt">burnin =</span> burnin,
+                            <span class="dt">nitt =</span> nitt,
+                            <span class="dt">verbose =</span> <span class="ot">FALSE</span>
+                            )
+<span class="kw">print</span>(<span class="kw">paste</span>(<span class="st">&quot;Approx. model run time: &quot;</span>, <span class="kw">format</span>(<span class="kw">Sys.time</span>() -<span class="st"> </span>time_start)))</code></pre>
+<pre><code>## [1] &quot;Approx. model run time:  10.28 mins&quot;</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">save</span>(doc_mcmc_model_across,
+  <span class="dt">file =</span> <span class="st">&quot;data/analyses_data/doc_mcmc_model_across.RData&quot;</span>)</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">load</span>(<span class="st">&quot;data/analyses_data/doc_mcmc_model_across.RData&quot;</span>)
+
+doc_I_var_across &lt;-<span class="st"> </span><span class="kw">PM_HPD</span>(doc_mcmc_model_across$VCV[ ,<span class="st">&quot;ID&quot;</span>])
+doc_P_var_across &lt;-<span class="st"> </span><span class="kw">PM_HPD</span>(<span class="kw">mcmc</span>(<span class="kw">rowSums</span>(doc_mcmc_model_across$VCV)))
+doc_rep_across   &lt;-<span class="st"> </span>doc_I_var_across /<span class="st"> </span>doc_P_var_across
+
+dIv_a &lt;-<span class="st"> </span><span class="kw">format_PM_HPD</span>(doc_I_var_across)
+dPv_a &lt;-<span class="st"> </span><span class="kw">format_PM_HPD</span>(doc_P_var_across)
+dRv_a &lt;-<span class="st"> </span><span class="kw">format_PM_HPD</span>(doc_rep_across)
+
+doc_ay_table &lt;-<span class="st"> </span><span class="kw">data.frame</span>(<span class="dt">check.names =</span> <span class="ot">FALSE</span>,
+   <span class="dt">Parameter  =</span> <span class="kw">c</span>(<span class="st">&quot;ID Variance&quot;</span>, <span class="st">&quot;Phen. Variance&quot;</span>, <span class="st">&quot;Repeatability&quot;</span>),
+  <span class="st">&quot;Post Mode&quot;</span> =<span class="st"> </span><span class="kw">c</span>(dIv_a[<span class="dv">1</span>], dPv_a[<span class="dv">1</span>], dRv_a[<span class="dv">1</span>]),
+  <span class="st">&quot;Cred Int.&quot;</span> =<span class="st"> </span><span class="kw">c</span>(dIv_a[<span class="dv">2</span>], dPv_a[<span class="dv">2</span>], dRv_a[<span class="dv">2</span>])
+  )
+
+<span class="kw">pandoc.table</span>(doc_ay_table, <span class="dt">caption =</span> <span class="st">&quot;Docility repeatability across years&quot;</span>)</code></pre>
+<table>
+<caption>Docility repeatability across years</caption>
+<col width="20%" />
+<col width="16%" />
+<col width="20%" />
+<thead>
+<tr class="header">
+<th align="center">Parameter</th>
+<th align="center">Post Mode</th>
+<th align="center">Cred Int.</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="center">ID Variance</td>
+<td align="center">16.08</td>
+<td align="center">(11.53 – 20.50)</td>
+</tr>
+<tr class="even">
+<td align="center">Phen. Variance</td>
+<td align="center">50.85</td>
+<td align="center">(47.09 – 55.16)</td>
+</tr>
+<tr class="odd">
+<td align="center">Repeatability</td>
+<td align="center">0.32</td>
+<td align="center">(0.24 – 0.37)</td>
+</tr>
+</tbody>
+</table>
+<p>Ok, the repeatability across years is a little lower than when within year repeated measures are inlcuded. Might be interesing to see what repeatability is within years only.</p>
+<h3 id="docility-repeatabiltiy-within-years">Docility Repeatabiltiy Within Years</h3>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="co"># Now pick 1 year for each squirrel, prioritizing years with most measures</span>
+pick_year &lt;-<span class="st"> </span>function(x){
+  if(<span class="kw">length</span>(<span class="kw">unique</span>(x$Year)) &gt;<span class="st"> </span><span class="dv">1</span>) {
+    table_years &lt;-<span class="st"> </span><span class="kw">table</span>(x$Year)
+    max_years &lt;-<span class="st"> </span><span class="kw">which</span>(table_years ==<span class="st"> </span><span class="kw">max</span>(table_years))
+    year &lt;-<span class="st"> </span><span class="kw">as.integer</span>(<span class="kw">sample</span>(<span class="kw">names</span>(max_years), <span class="dv">1</span>))
+    x[x$Year ==<span class="st"> </span>year, ]
+    }else{x}
+}
+
+doc_data_within &lt;-<span class="st"> </span>doc_data %&gt;%
+<span class="st">  </span><span class="kw">group_by</span>(ID) %&gt;%
+<span class="st">  </span><span class="kw">do</span>(<span class="kw">pick_year</span>(.))
+
+<span class="co"># Run model again</span>
+prior &lt;-<span class="st"> </span><span class="kw">list</span>(
+  <span class="dt">G =</span> <span class="kw">list</span>(<span class="dt">G1 =</span> <span class="kw">list</span>(<span class="dt">V =</span> <span class="kw">var</span>(doc_data_within$doc, <span class="dt">na.rm =</span> <span class="ot">TRUE</span>), <span class="dt">nu =</span> <span class="fl">1.002</span>)), 
+  <span class="dt">R =</span> <span class="kw">list</span>(<span class="dt">V =</span> <span class="kw">var</span>(doc_data_within$doc, <span class="dt">na.rm =</span> <span class="ot">TRUE</span>), <span class="dt">nu =</span> <span class="fl">1.002</span>))</code></pre>
+<pre><code>## Warning: Name partially matched in data frame
+## Warning: Name partially matched in data frame</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r">time_start &lt;-<span class="st"> </span><span class="kw">Sys.time</span>()
+doc_mcmc_model_within &lt;-<span class="st"> </span><span class="kw">MCMCglmm</span>(docil ~<span class="st"> </span>julian +<span class="st"> </span>Obs +<span class="st"> </span>handlevent_year +<span class="st"> </span>
+<span class="st">                                   </span><span class="kw">I</span>(handlevent_year^<span class="dv">2</span>),
+                          <span class="dt">random =</span> ~<span class="st"> </span>ID,
+                          <span class="dt">prior =</span> prior,
+                          <span class="dt">pr =</span> <span class="ot">TRUE</span>,
+                          <span class="dt">data =</span> <span class="kw">ungroup</span>(doc_data_within),
+                          <span class="dt">thin =</span> thin,
+                          <span class="dt">burnin =</span> burnin,
+                          <span class="dt">nitt =</span> nitt,
+                          <span class="dt">verbose =</span> <span class="ot">FALSE</span>
+                          )
+<span class="kw">print</span>(<span class="kw">paste</span>(<span class="st">&quot;Approx. model run time: &quot;</span>, <span class="kw">format</span>(<span class="kw">Sys.time</span>() -<span class="st"> </span>time_start)))</code></pre>
+<pre><code>## [1] &quot;Approx. model run time:  22.08 mins&quot;</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">save</span>(doc_mcmc_model_within,
+  <span class="dt">file =</span> <span class="st">&quot;data/analyses_data/doc_mcmc_model_within.RData&quot;</span>)</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">load</span>(<span class="st">&quot;data/analyses_data/doc_mcmc_model_within.RData&quot;</span>)
+
+doc_I_var_within &lt;-<span class="st"> </span><span class="kw">PM_HPD</span>(doc_mcmc_model_within$VCV[ ,<span class="st">&quot;ID&quot;</span>])
+doc_P_var_within &lt;-<span class="st"> </span><span class="kw">PM_HPD</span>(<span class="kw">mcmc</span>(<span class="kw">rowSums</span>(doc_mcmc_model_within$VCV)))
+doc_rep_within   &lt;-<span class="st"> </span>doc_I_var_within /<span class="st"> </span>doc_P_var_within
+
+dIv_w &lt;-<span class="st"> </span><span class="kw">format_PM_HPD</span>(doc_I_var_within)
+dPv_w &lt;-<span class="st"> </span><span class="kw">format_PM_HPD</span>(doc_P_var_within)
+dRv_w &lt;-<span class="st"> </span><span class="kw">format_PM_HPD</span>(doc_rep_within)
+
+doc_wy_table &lt;-<span class="st"> </span><span class="kw">data.frame</span>(<span class="dt">check.names =</span> <span class="ot">FALSE</span>,
+  <span class="dt">Parameter =</span> <span class="kw">c</span>(<span class="st">&quot;ID Variance&quot;</span>, <span class="st">&quot;Phen. Variance&quot;</span>, <span class="st">&quot;Repeatability&quot;</span>),
+  <span class="st">&quot;Post Mode&quot;</span> =<span class="st"> </span><span class="kw">c</span>(dIv_w[<span class="dv">1</span>], dPv_w[<span class="dv">1</span>], dRv_w[<span class="dv">1</span>]),
+  <span class="st">&quot;Cred Int.&quot;</span> =<span class="st"> </span><span class="kw">c</span>(dIv_w[<span class="dv">2</span>], dPv_w[<span class="dv">2</span>], dRv_w[<span class="dv">2</span>])
+  )
+
+<span class="kw">pandoc.table</span>(doc_wy_table, <span class="dt">caption =</span> <span class="st">&quot;Docility repeatability within years&quot;</span>, 
+  <span class="dt">justify =</span> <span class="st">&#39;right&#39;</span>)</code></pre>
+<table>
+<caption>Docility repeatability within years</caption>
+<col width="20%" />
+<col width="16%" />
+<col width="20%" />
+<thead>
+<tr class="header">
+<th align="right">Parameter</th>
+<th align="right">Post Mode</th>
+<th align="right">Cred Int.</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="right">ID Variance</td>
+<td align="right">21.20</td>
+<td align="right">(17.70 – 23.61)</td>
+</tr>
+<tr class="even">
+<td align="right">Phen. Variance</td>
+<td align="right">52.45</td>
+<td align="right">(49.50 – 55.89)</td>
+</tr>
+<tr class="odd">
+<td align="right">Repeatability</td>
+<td align="right">0.40</td>
+<td align="right">(0.36 – 0.42)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="aggression">Aggression</h2>
+<p>Aggression is the first principal component of the mirror image stimluation test.</p>
+<pre class="sourceCode r"><code class="sourceCode r">prior &lt;-<span class="st"> </span><span class="kw">list</span>(
+  <span class="dt">G =</span> <span class="kw">list</span>(<span class="dt">G1 =</span> <span class="kw">list</span>(<span class="dt">V =</span> <span class="kw">var</span>(agg_data$misPC1, <span class="dt">na.rm =</span> <span class="ot">TRUE</span>), <span class="dt">nu =</span> <span class="fl">1.002</span>)),
+  <span class="dt">R =</span> <span class="kw">list</span>(<span class="dt">V =</span> <span class="kw">var</span>(agg_data$misPC1, <span class="dt">na.rm =</span> <span class="ot">TRUE</span>), <span class="dt">nu =</span> <span class="fl">1.002</span>))
+
+time_start &lt;-<span class="st"> </span><span class="kw">Sys.time</span>()
+agg_mcmc_model &lt;-<span class="st"> </span><span class="kw">MCMCglmm</span>(misPC1 ~<span class="st"> </span>julian +<span class="st"> </span>trial_life +<span class="st"> </span><span class="kw">I</span>(trial_life^<span class="dv">2</span>),
+                    <span class="dt">random =</span> ~<span class="st"> </span>ID,
+                    <span class="dt">prior =</span> prior,
+                    <span class="dt">pr =</span> <span class="ot">TRUE</span>,
+                    <span class="dt">data =</span> <span class="kw">ungroup</span>(agg_data),
+                    <span class="dt">thin =</span> thin,
+                    <span class="dt">burnin =</span> burnin,
+                    <span class="dt">nitt =</span> nitt,
+                    <span class="dt">verbose =</span> <span class="ot">FALSE</span>
+                    )
+<span class="kw">print</span>(<span class="kw">paste</span>(<span class="st">&quot;Approx. model run time: &quot;</span>, <span class="kw">format</span>(<span class="kw">Sys.time</span>() -<span class="st"> </span>time_start)))</code></pre>
+<pre><code>## [1] &quot;Approx. model run time:  4.033 mins&quot;</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">print</span>(<span class="kw">summary</span>(agg_mcmc_model))</code></pre>
+<pre><code>## 
+##  Iterations = 50001:549501
+##  Thinning interval  = 500
+##  Sample size  = 1000 
+## 
+##  DIC: 2053 
+## 
+##  G-structure:  ~ID
+## 
+##    post.mean l-95% CI u-95% CI eff.samp
+## ID      1.01    0.588     1.46     1000
+## 
+##  R-structure:  ~units
+## 
+##       post.mean l-95% CI u-95% CI eff.samp
+## units      1.79     1.43     2.13     1000
+## 
+##  Location effects: misPC1 ~ julian + trial_life + I(trial_life^2) 
+## 
+##                 post.mean l-95% CI u-95% CI eff.samp  pMCMC    
+## (Intercept)       1.03670  0.26825  1.83944     1000  0.018 *  
+## julian           -0.00736 -0.01143 -0.00367     1000 &lt;0.001 ***
+## trial_life        0.35863 -0.43893  1.10061      785  0.358    
+## I(trial_life^2)  -0.07384 -0.28611  0.11870      762  0.488    
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">save</span>(agg_mcmc_model, <span class="dt">file =</span> <span class="st">&quot;data/analyses_data/agg_mcmc_model.RData&quot;</span>)</code></pre>
+<h3 id="aggression-repeatability">Aggression Repeatability</h3>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">load</span>(<span class="st">&quot;data/analyses_data/agg_mcmc_model.RData&quot;</span>)
+agg_I_var &lt;-<span class="st"> </span><span class="kw">PM_HPD</span>(agg_mcmc_model$VCV[ ,<span class="st">&quot;ID&quot;</span>])
+agg_P_var &lt;-<span class="st"> </span><span class="kw">PM_HPD</span>(<span class="kw">mcmc</span>(<span class="kw">rowSums</span>(agg_mcmc_model$VCV)))
+agg_rep &lt;-<span class="st"> </span>agg_I_var /<span class="st"> </span>agg_P_var
+
+agIv &lt;-<span class="st"> </span><span class="kw">format_PM_HPD</span>(agg_I_var)
+agPv &lt;-<span class="st"> </span><span class="kw">format_PM_HPD</span>(agg_P_var)
+agRv &lt;-<span class="st"> </span><span class="kw">format_PM_HPD</span>(agg_rep)
+
+agg_table &lt;-<span class="st"> </span><span class="kw">data.frame</span>(
+  <span class="dt">Parameter =</span> <span class="kw">c</span>(<span class="st">&quot;ID Variance&quot;</span>, <span class="st">&quot;Phen. Variance&quot;</span>, <span class="st">&quot;Repeatability&quot;</span>),
+  <span class="st">&quot;Post Mode&quot;</span> =<span class="st"> </span><span class="kw">c</span>(agIv[<span class="dv">1</span>], agPv[<span class="dv">1</span>], agRv[<span class="dv">1</span>]),
+  <span class="st">&quot;Cred Int.&quot;</span> =<span class="st"> </span><span class="kw">c</span>(agIv[<span class="dv">2</span>], agPv[<span class="dv">2</span>], agRv[<span class="dv">2</span>])
+  )
+
+<span class="kw">pandoc.table</span>(agg_table, <span class="dt">caption =</span> <span class="st">&quot;Aggression repeatability using all trials&quot;</span>, 
+  <span class="dt">justify =</span> <span class="st">&#39;right&#39;</span>)</code></pre>
+<table>
+<caption>Aggression repeatability using all trials</caption>
+<col width="20%" />
+<col width="16%" />
+<col width="18%" />
+<thead>
+<tr class="header">
+<th align="right">Parameter</th>
+<th align="right">Post.Mode</th>
+<th align="right">Cred.Int.</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="right">ID Variance</td>
+<td align="right">1.04</td>
+<td align="right">(0.59 – 1.46)</td>
+</tr>
+<tr class="even">
+<td align="right">Phen. Variance</td>
+<td align="right">2.66</td>
+<td align="right">(2.48 – 3.18)</td>
+</tr>
+<tr class="odd">
+<td align="right">Repeatability</td>
+<td align="right">0.39</td>
+<td align="right">(0.24 – 0.46)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="aggression-repeatability-across-years">Aggression Repeatability Across Years</h3>
+<pre class="sourceCode r"><code class="sourceCode r">agg_data_across &lt;-<span class="st"> </span>agg_data %&gt;%
+<span class="st">  </span><span class="kw">group_by</span>(ID, Year) %&gt;%
+<span class="st">  </span>dplyr:::<span class="kw">sample_n.grouped_df</span>(<span class="dv">1</span>)
+
+prior &lt;-<span class="st"> </span><span class="kw">list</span>(
+  <span class="dt">G =</span> <span class="kw">list</span>(
+    <span class="dt">G1 =</span> <span class="kw">list</span>(<span class="dt">V =</span> <span class="kw">var</span>(agg_data_across$misPC1, <span class="dt">na.rm =</span> <span class="ot">TRUE</span>), <span class="dt">nu =</span> <span class="fl">1.002</span>)),
+  <span class="dt">R =</span> <span class="kw">list</span>(<span class="dt">V =</span> <span class="kw">var</span>(agg_data_across$misPC1, <span class="dt">na.rm =</span> <span class="ot">TRUE</span>), <span class="dt">nu =</span> <span class="fl">1.002</span>))
+
+time_start &lt;-<span class="st"> </span><span class="kw">Sys.time</span>()
+agg_mcmc_model_across &lt;-<span class="st"> </span><span class="kw">MCMCglmm</span>(misPC1 ~<span class="st"> </span>julian +<span class="st"> </span>trial_life +
+<span class="st">                                   </span><span class="kw">I</span>(trial_life^<span class="dv">2</span>),
+                           <span class="dt">random =</span> ~<span class="st"> </span>ID,
+                           <span class="dt">prior =</span> prior,
+                           <span class="dt">pr =</span> <span class="ot">TRUE</span>,
+                           <span class="dt">data =</span> <span class="kw">ungroup</span>(agg_data_across),
+                           <span class="dt">thin =</span> thin,
+                           <span class="dt">burnin =</span> burnin,
+                           <span class="dt">nitt =</span> nitt,
+                           <span class="dt">verbose =</span> <span class="ot">FALSE</span>
+                           )
+<span class="kw">print</span>(<span class="kw">paste</span>(<span class="st">&quot;Approx. model run time: &quot;</span>, <span class="kw">format</span>(<span class="kw">Sys.time</span>() -<span class="st"> </span>time_start)))</code></pre>
+<pre><code>## [1] &quot;Approx. model run time:  3.654 mins&quot;</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">save</span>(agg_mcmc_model_across,
+  <span class="dt">file =</span> <span class="st">&quot;data/analyses_data/agg_mcmc_model_across.RData&quot;</span>)</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">load</span>(<span class="st">&quot;data/analyses_data/agg_mcmc_model_across.RData&quot;</span>)
+
+agg_I_var_across &lt;-<span class="st"> </span><span class="kw">PM_HPD</span>(agg_mcmc_model_across$VCV[ ,<span class="st">&quot;ID&quot;</span>])
+agg_P_var_across &lt;-<span class="st"> </span><span class="kw">PM_HPD</span>(<span class="kw">mcmc</span>(<span class="kw">rowSums</span>(agg_mcmc_model_across$VCV)))
+agg_rep_across   &lt;-<span class="st"> </span>agg_I_var_across /<span class="st"> </span>agg_P_var_across
+
+agIv_a &lt;-<span class="st"> </span><span class="kw">format_PM_HPD</span>(agg_I_var_across)
+agPv_a &lt;-<span class="st"> </span><span class="kw">format_PM_HPD</span>(agg_P_var_across)
+agRv_a &lt;-<span class="st"> </span><span class="kw">format_PM_HPD</span>(agg_rep_across)
+
+agg_ay_table &lt;-<span class="st"> </span><span class="kw">data.frame</span>(
+  <span class="dt">Parameter =</span> <span class="kw">c</span>(<span class="st">&quot;ID Variance&quot;</span>, <span class="st">&quot;Phen. Variance&quot;</span>, <span class="st">&quot;Repeatability&quot;</span>),
+  <span class="st">&quot;Post Mode&quot;</span> =<span class="st"> </span><span class="kw">c</span>(agIv_a[<span class="dv">1</span>], agPv_a[<span class="dv">1</span>], agRv_a[<span class="dv">1</span>]),
+  <span class="st">&quot;Cred Int.&quot;</span> =<span class="st"> </span><span class="kw">c</span>(agIv_a[<span class="dv">2</span>], agPv_a[<span class="dv">2</span>], agRv_a[<span class="dv">2</span>])
+  )
+
+<span class="kw">pandoc.table</span>(agg_ay_table, <span class="dt">caption =</span> <span class="st">&quot;Aggression repeatability across years&quot;</span>, 
+  <span class="dt">justify =</span> <span class="st">&#39;right&#39;</span>)</code></pre>
+<table>
+<caption>Aggression repeatability across years</caption>
+<col width="20%" />
+<col width="16%" />
+<col width="18%" />
+<thead>
+<tr class="header">
+<th align="right">Parameter</th>
+<th align="right">Post.Mode</th>
+<th align="right">Cred.Int.</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="right">ID Variance</td>
+<td align="right">0.68</td>
+<td align="right">(0.41 – 1.40)</td>
+</tr>
+<tr class="even">
+<td align="right">Phen. Variance</td>
+<td align="right">2.92</td>
+<td align="right">(2.54 – 3.30)</td>
+</tr>
+<tr class="odd">
+<td align="right">Repeatability</td>
+<td align="right">0.23</td>
+<td align="right">(0.16 – 0.42)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="aggression-repeatabiltiy-within-years">Aggression Repeatabiltiy Within Years</h3>
+<pre class="sourceCode r"><code class="sourceCode r">agg_data_within &lt;-<span class="st"> </span>agg_data %&gt;%
+<span class="st">  </span><span class="kw">group_by</span>(ID) %&gt;%
+<span class="st">  </span><span class="kw">do</span>(<span class="kw">pick_year</span>(.))
+
+prior &lt;-<span class="st"> </span><span class="kw">list</span>(
+  <span class="dt">G =</span> <span class="kw">list</span>(
+    <span class="dt">G1 =</span> <span class="kw">list</span>(<span class="dt">V =</span> <span class="kw">var</span>(agg_data_within$misPC1, <span class="dt">na.rm =</span> <span class="ot">TRUE</span>), <span class="dt">nu =</span> <span class="fl">1.002</span>)),
+  <span class="dt">R =</span> <span class="kw">list</span>(<span class="dt">V =</span> <span class="kw">var</span>(agg_data_within$misPC1, <span class="dt">na.rm =</span> <span class="ot">TRUE</span>), <span class="dt">nu =</span> <span class="fl">1.002</span>)
+  )
+
+time_start &lt;-<span class="st"> </span><span class="kw">Sys.time</span>()
+agg_mcmc_model_within &lt;-<span class="st"> </span><span class="kw">MCMCglmm</span>(misPC1 ~<span class="st"> </span>julian +<span class="st"> </span>trial_life +
+<span class="st">                                    </span><span class="kw">I</span>(trial_life^<span class="dv">2</span>),
+                           <span class="dt">random =</span> ~<span class="st"> </span>ID,
+                           <span class="dt">prior =</span> prior,
+                           <span class="dt">pr =</span> <span class="ot">TRUE</span>,
+                           <span class="dt">data =</span> <span class="kw">ungroup</span>(agg_data_within),
+                           <span class="dt">thin =</span> thin,
+                           <span class="dt">burnin =</span> burnin,
+                           <span class="dt">nitt =</span> nitt,
+                           <span class="dt">verbose =</span> <span class="ot">FALSE</span>
+                           )
+<span class="kw">print</span>(<span class="kw">paste</span>(<span class="st">&quot;Approx. model run time: &quot;</span>, <span class="kw">format</span>(<span class="kw">Sys.time</span>() -<span class="st"> </span>time_start)))</code></pre>
+<pre><code>## [1] &quot;Approx. model run time:  3.663 mins&quot;</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">save</span>(agg_mcmc_model_within,
+  <span class="dt">file =</span> <span class="st">&quot;data/analyses_data/agg_mcmc_model_within.RData&quot;</span>)</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">load</span>(<span class="st">&quot;data/analyses_data/agg_mcmc_model_within.RData&quot;</span>)
+
+agg_I_var_within &lt;-<span class="st"> </span><span class="kw">PM_HPD</span>(agg_mcmc_model_within$VCV[ ,<span class="st">&quot;ID&quot;</span>])
+agg_P_var_within &lt;-<span class="st"> </span><span class="kw">PM_HPD</span>(<span class="kw">mcmc</span>(<span class="kw">rowSums</span>(agg_mcmc_model_within$VCV)))
+agg_rep_within   &lt;-<span class="st"> </span>agg_I_var_within /<span class="st"> </span>agg_P_var_within
+
+agIv_w &lt;-<span class="st"> </span><span class="kw">format_PM_HPD</span>(agg_I_var_within)
+agPv_w &lt;-<span class="st"> </span><span class="kw">format_PM_HPD</span>(agg_P_var_within)
+agRv_w &lt;-<span class="st"> </span><span class="kw">format_PM_HPD</span>(agg_rep_within)
+
+agg_wy_table &lt;-<span class="st"> </span><span class="kw">data.frame</span>(
+  <span class="dt">Parameter =</span> <span class="kw">c</span>(<span class="st">&quot;ID Variance&quot;</span>, <span class="st">&quot;Phen. Variance&quot;</span>, <span class="st">&quot;Repeatability&quot;</span>),
+  <span class="st">&quot;Post Mode&quot;</span> =<span class="st"> </span><span class="kw">c</span>(agIv_w[<span class="dv">1</span>], agPv_w[<span class="dv">1</span>], agRv_w[<span class="dv">1</span>]),
+  <span class="st">&quot;Cred Int.&quot;</span> =<span class="st"> </span><span class="kw">c</span>(agIv_w[<span class="dv">2</span>], agPv_w[<span class="dv">2</span>], agRv_w[<span class="dv">2</span>])
+  )
+
+<span class="kw">pandoc.table</span>(agg_wy_table, <span class="dt">caption =</span> <span class="st">&quot;Aggression repeatability within years&quot;</span>)</code></pre>
+<table>
+<caption>Aggression repeatability within years</caption>
+<col width="20%" />
+<col width="16%" />
+<col width="18%" />
+<thead>
+<tr class="header">
+<th align="center">Parameter</th>
+<th align="center">Post.Mode</th>
+<th align="center">Cred.Int.</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="center">ID Variance</td>
+<td align="center">1.39</td>
+<td align="center">(0.91 – 1.85)</td>
+</tr>
+<tr class="even">
+<td align="center">Phen. Variance</td>
+<td align="center">2.78</td>
+<td align="center">(2.44 – 3.18)</td>
+</tr>
+<tr class="odd">
+<td align="center">Repeatability</td>
+<td align="center">0.50</td>
+<td align="center">(0.37 – 0.58)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="activity">Activity</h2>
+<p>Activity is the first principal component of the open field test.</p>
+<pre class="sourceCode r"><code class="sourceCode r">prior &lt;-<span class="st"> </span><span class="kw">list</span>(
+  <span class="dt">G =</span> <span class="kw">list</span>(<span class="dt">G1 =</span> <span class="kw">list</span>(<span class="dt">V =</span> <span class="kw">var</span>(act_data$ofPC1, <span class="dt">na.rm =</span> <span class="ot">TRUE</span>), <span class="dt">nu =</span> <span class="fl">1.002</span>)),
+  <span class="dt">R =</span> <span class="kw">list</span>(<span class="dt">V =</span> <span class="kw">var</span>(act_data$ofPC1, <span class="dt">na.rm =</span> <span class="ot">TRUE</span>), <span class="dt">nu =</span> <span class="fl">1.002</span>)
+  )
+
+time_start &lt;-<span class="st"> </span><span class="kw">Sys.time</span>()
+act_mcmc_model &lt;-<span class="st"> </span><span class="kw">MCMCglmm</span>(ofPC1 ~<span class="st"> </span>julian +<span class="st"> </span>trial_life +<span class="st"> </span><span class="kw">I</span>(trial_life^<span class="dv">2</span>),
+                    <span class="dt">random =</span> ~<span class="st"> </span>ID,
+                    <span class="dt">prior =</span> prior,
+                    <span class="dt">pr =</span> <span class="ot">TRUE</span>,
+                    <span class="dt">data =</span> <span class="kw">ungroup</span>(act_data),
+                    <span class="dt">thin =</span> thin,
+                    <span class="dt">burnin =</span> burnin,
+                    <span class="dt">nitt =</span> nitt,
+                    <span class="dt">verbose =</span> <span class="ot">FALSE</span>
+                    )
+<span class="kw">print</span>(<span class="kw">paste</span>(<span class="st">&quot;Approx. model run time: &quot;</span>, <span class="kw">format</span>(<span class="kw">Sys.time</span>() -<span class="st"> </span>time_start)))</code></pre>
+<pre><code>## [1] &quot;Approx. model run time:  3.956 mins&quot;</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">print</span>(<span class="kw">summary</span>(act_mcmc_model))</code></pre>
+<pre><code>## 
+##  Iterations = 50001:549501
+##  Thinning interval  = 500
+##  Sample size  = 1000 
+## 
+##  DIC: 1965 
+## 
+##  G-structure:  ~ID
+## 
+##    post.mean l-95% CI u-95% CI eff.samp
+## ID      1.14     0.81      1.5     1000
+## 
+##  R-structure:  ~units
+## 
+##       post.mean l-95% CI u-95% CI eff.samp
+## units      1.42     1.15      1.7     1000
+## 
+##  Location effects: ofPC1 ~ julian + trial_life + I(trial_life^2) 
+## 
+##                 post.mean  l-95% CI  u-95% CI eff.samp  pMCMC    
+## (Intercept)      1.681676  0.992768  2.483235     1000 &lt;0.001 ***
+## julian           0.000679 -0.002925  0.004063     1000  0.682    
+## trial_life      -1.703131 -2.366306 -0.988700     1000 &lt;0.001 ***
+## I(trial_life^2)  0.264116  0.063945  0.428435     1000  0.006 ** 
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">save</span>(act_mcmc_model, <span class="dt">file =</span> <span class="st">&quot;data/analyses_data/act_mcmc_model.RData&quot;</span>)</code></pre>
+<h3 id="activity-repeatability">Activity Repeatability</h3>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">load</span>(<span class="st">&quot;data/analyses_data/act_mcmc_model.RData&quot;</span>)
+act_I_var &lt;-<span class="st"> </span><span class="kw">PM_HPD</span>(act_mcmc_model$VCV[ ,<span class="st">&quot;ID&quot;</span>])
+act_P_var &lt;-<span class="st"> </span><span class="kw">PM_HPD</span>(<span class="kw">mcmc</span>(<span class="kw">rowSums</span>(act_mcmc_model$VCV)))
+act_rep &lt;-<span class="st"> </span>act_I_var /<span class="st"> </span>act_P_var
+
+acIv &lt;-<span class="st"> </span><span class="kw">format_PM_HPD</span>(act_I_var)
+acPv &lt;-<span class="st"> </span><span class="kw">format_PM_HPD</span>(act_P_var)
+acRv &lt;-<span class="st"> </span><span class="kw">format_PM_HPD</span>(act_rep)
+
+act_table &lt;-<span class="st"> </span><span class="kw">data.frame</span>(
+  <span class="dt">Parameter =</span> <span class="kw">c</span>(<span class="st">&quot;ID Variance&quot;</span>, <span class="st">&quot;Phen. Variance&quot;</span>, <span class="st">&quot;Repeatability&quot;</span>),
+  <span class="st">&quot;Post Mode&quot;</span> =<span class="st"> </span><span class="kw">c</span>(acIv[<span class="dv">1</span>], acPv[<span class="dv">1</span>], acRv[<span class="dv">1</span>]),
+  <span class="st">&quot;Cred Int.&quot;</span> =<span class="st"> </span><span class="kw">c</span>(acIv[<span class="dv">2</span>], acPv[<span class="dv">2</span>], acRv[<span class="dv">2</span>])
+  )
+
+<span class="kw">pandoc.table</span>(act_table, <span class="dt">caption =</span> <span class="st">&quot;Activity repeatability using all trials&quot;</span>)</code></pre>
+<table>
+<caption>Activity repeatability using all trials</caption>
+<col width="20%" />
+<col width="16%" />
+<col width="18%" />
+<thead>
+<tr class="header">
+<th align="center">Parameter</th>
+<th align="center">Post.Mode</th>
+<th align="center">Cred.Int.</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="center">ID Variance</td>
+<td align="center">1.20</td>
+<td align="center">(0.81 – 1.50)</td>
+</tr>
+<tr class="even">
+<td align="center">Phen. Variance</td>
+<td align="center">2.52</td>
+<td align="center">(2.29 – 2.90)</td>
+</tr>
+<tr class="odd">
+<td align="center">Repeatability</td>
+<td align="center">0.48</td>
+<td align="center">(0.35 – 0.52)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="activity-repeatability-across-years">Activity Repeatability Across Years</h3>
+<pre class="sourceCode r"><code class="sourceCode r">act_data_across &lt;-<span class="st"> </span>act_data %&gt;%
+<span class="st">  </span><span class="kw">group_by</span>(ID, Year) %&gt;%
+<span class="st">  </span>dplyr:::<span class="kw">sample_n.grouped_df</span>(<span class="dv">1</span>)
+
+prior &lt;-<span class="st"> </span><span class="kw">list</span>(
+  <span class="dt">G =</span> <span class="kw">list</span>(<span class="dt">G1 =</span> <span class="kw">list</span>(<span class="dt">V =</span> <span class="kw">var</span>(act_data_across$ofPC1, <span class="dt">na.rm =</span> <span class="ot">TRUE</span>), <span class="dt">nu =</span> <span class="fl">1.002</span>)),
+  <span class="dt">R =</span> <span class="kw">list</span>(<span class="dt">V =</span> <span class="kw">var</span>(act_data_across$ofPC1, <span class="dt">na.rm =</span> <span class="ot">TRUE</span>), <span class="dt">nu =</span> <span class="fl">1.002</span>))
+
+time_start &lt;-<span class="st"> </span><span class="kw">Sys.time</span>()
+act_mcmc_model_across &lt;-<span class="st"> </span><span class="kw">MCMCglmm</span>(ofPC1 ~<span class="st"> </span>julian +<span class="st"> </span>trial_life +
+<span class="st">                                   </span><span class="kw">I</span>(trial_life^<span class="dv">2</span>),
+                           <span class="dt">random =</span> ~<span class="st"> </span>ID,
+                           <span class="dt">prior =</span> prior,
+                           <span class="dt">pr =</span> <span class="ot">TRUE</span>,
+                           <span class="dt">data =</span> <span class="kw">ungroup</span>(act_data_across),
+                           <span class="dt">thin =</span> thin,
+                           <span class="dt">burnin =</span> burnin,
+                           <span class="dt">nitt =</span> nitt,
+                           <span class="dt">verbose =</span> <span class="ot">FALSE</span>
+                           )
+<span class="kw">print</span>(<span class="kw">paste</span>(<span class="st">&quot;Approx. model run time: &quot;</span>, <span class="kw">format</span>(<span class="kw">Sys.time</span>() -<span class="st"> </span>time_start)))</code></pre>
+<pre><code>## [1] &quot;Approx. model run time:  3.431 mins&quot;</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">save</span>(act_mcmc_model_across,
+  <span class="dt">file =</span> <span class="st">&quot;data/analyses_data/act_mcmc_model_across.RData&quot;</span>)</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">load</span>(<span class="st">&quot;data/analyses_data/act_mcmc_model_across.RData&quot;</span>)
+
+act_I_var_across &lt;-<span class="st"> </span><span class="kw">PM_HPD</span>(act_mcmc_model_across$VCV[ ,<span class="st">&quot;ID&quot;</span>])
+act_P_var_across &lt;-<span class="st"> </span><span class="kw">PM_HPD</span>(<span class="kw">mcmc</span>(<span class="kw">rowSums</span>(act_mcmc_model_across$VCV)))
+act_rep_across   &lt;-<span class="st"> </span>act_I_var_across /<span class="st"> </span>act_P_var_across
+
+acIv_a &lt;-<span class="st"> </span><span class="kw">format_PM_HPD</span>(act_I_var_across)
+acPv_a &lt;-<span class="st"> </span><span class="kw">format_PM_HPD</span>(act_P_var_across)
+acRv_a &lt;-<span class="st"> </span><span class="kw">format_PM_HPD</span>(act_rep_across)
+
+act_ay_table &lt;-<span class="st"> </span><span class="kw">data.frame</span>(
+  <span class="dt">Parameter =</span> <span class="kw">c</span>(<span class="st">&quot;ID Variance&quot;</span>, <span class="st">&quot;Phen. Variance&quot;</span>, <span class="st">&quot;Repeatability&quot;</span>),
+  <span class="st">&quot;Post Mode&quot;</span> =<span class="st"> </span><span class="kw">c</span>(acIv_a[<span class="dv">1</span>], acPv_a[<span class="dv">1</span>], acRv_a[<span class="dv">1</span>]),
+  <span class="st">&quot;Cred Int.&quot;</span> =<span class="st"> </span><span class="kw">c</span>(acIv_a[<span class="dv">2</span>], acPv_a[<span class="dv">2</span>], acRv_a[<span class="dv">2</span>])
+  )
+
+<span class="kw">pandoc.table</span>(act_ay_table, <span class="dt">caption =</span> <span class="st">&quot;Activity repeatability across years&quot;</span>)</code></pre>
+<table>
+<caption>Activity repeatability across years</caption>
+<col width="20%" />
+<col width="16%" />
+<col width="18%" />
+<thead>
+<tr class="header">
+<th align="center">Parameter</th>
+<th align="center">Post.Mode</th>
+<th align="center">Cred.Int.</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="center">ID Variance</td>
+<td align="center">0.89</td>
+<td align="center">(0.43 – 1.34)</td>
+</tr>
+<tr class="even">
+<td align="center">Phen. Variance</td>
+<td align="center">2.70</td>
+<td align="center">(2.27 – 2.96)</td>
+</tr>
+<tr class="odd">
+<td align="center">Repeatability</td>
+<td align="center">0.33</td>
+<td align="center">(0.19 – 0.45)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="activity-repeatabiltiy-within-years">Activity Repeatabiltiy Within Years</h3>
+<pre class="sourceCode r"><code class="sourceCode r">act_data_within &lt;-<span class="st"> </span>act_data %&gt;%
+<span class="st">  </span><span class="kw">group_by</span>(ID) %&gt;%
+<span class="st">  </span><span class="kw">do</span>(<span class="kw">pick_year</span>(.))
+
+prior &lt;-<span class="st"> </span><span class="kw">list</span>(
+  <span class="dt">G =</span> <span class="kw">list</span>(<span class="dt">G1 =</span> <span class="kw">list</span>(<span class="dt">V =</span> <span class="kw">var</span>(act_data_within$ofPC1, <span class="dt">na.rm =</span> <span class="ot">TRUE</span>), <span class="dt">nu =</span> <span class="fl">1.002</span>)), 
+  <span class="dt">R =</span> <span class="kw">list</span>(<span class="dt">V =</span> <span class="kw">var</span>(act_data_within$ofPC1, <span class="dt">na.rm =</span> <span class="ot">TRUE</span>), <span class="dt">nu =</span> <span class="fl">1.002</span>)
+  )
+
+time_start &lt;-<span class="st"> </span><span class="kw">Sys.time</span>()
+act_mcmc_model_within &lt;-<span class="st"> </span><span class="kw">MCMCglmm</span>(ofPC1 ~<span class="st"> </span>julian +<span class="st"> </span>trial_life +
+<span class="st">                                   </span><span class="kw">I</span>(trial_life^<span class="dv">2</span>),
+                           <span class="dt">random =</span> ~<span class="st"> </span>ID,
+                           <span class="dt">prior =</span> prior,
+                           <span class="dt">pr =</span> <span class="ot">TRUE</span>,
+                           <span class="dt">data =</span> <span class="kw">ungroup</span>(act_data_within),
+                           <span class="dt">thin =</span> thin,
+                           <span class="dt">burnin =</span> burnin,
+                           <span class="dt">nitt =</span> nitt,
+                           <span class="dt">verbose =</span> <span class="ot">FALSE</span>
+                           )
+<span class="kw">print</span>(<span class="kw">paste</span>(<span class="st">&quot;Approx. model run time: &quot;</span>, <span class="kw">format</span>(<span class="kw">Sys.time</span>() -<span class="st"> </span>time_start)))</code></pre>
+<pre><code>## [1] &quot;Approx. model run time:  3.567 mins&quot;</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">save</span>(act_mcmc_model_within,
+  <span class="dt">file =</span> <span class="st">&quot;data/analyses_data/act_mcmc_model_within.RData&quot;</span>)</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">load</span>(<span class="st">&quot;data/analyses_data/act_mcmc_model_within.RData&quot;</span>)
+
+act_I_var_within &lt;-<span class="st"> </span><span class="kw">PM_HPD</span>(act_mcmc_model_within$VCV[ ,<span class="st">&quot;ID&quot;</span>])
+act_P_var_within &lt;-<span class="st"> </span><span class="kw">PM_HPD</span>(<span class="kw">mcmc</span>(<span class="kw">rowSums</span>(act_mcmc_model_within$VCV)))
+act_rep_within   &lt;-<span class="st"> </span>act_I_var_within /<span class="st"> </span>act_P_var_within
+
+acIv_w &lt;-<span class="st"> </span><span class="kw">format_PM_HPD</span>(act_I_var_within)
+acPv_w &lt;-<span class="st"> </span><span class="kw">format_PM_HPD</span>(act_P_var_within)
+acRv_w &lt;-<span class="st"> </span><span class="kw">format_PM_HPD</span>(act_rep_within)
+
+act_wy_table &lt;-<span class="st"> </span><span class="kw">data.frame</span>(
+  <span class="dt">Parameter =</span> <span class="kw">c</span>(<span class="st">&quot;ID Variance&quot;</span>, <span class="st">&quot;Phen. Variance&quot;</span>, <span class="st">&quot;Repeatability&quot;</span>),
+  <span class="st">&quot;Post Mode&quot;</span> =<span class="st"> </span><span class="kw">c</span>(acIv_w[<span class="dv">1</span>], acPv_w[<span class="dv">1</span>], acRv_w[<span class="dv">1</span>]),
+  <span class="st">&quot;Cred Int.&quot;</span> =<span class="st"> </span><span class="kw">c</span>(acIv_w[<span class="dv">2</span>], acPv_w[<span class="dv">2</span>], acRv_w[<span class="dv">2</span>])
+  )
+
+<span class="kw">pandoc.table</span>(act_wy_table, <span class="dt">caption =</span> <span class="st">&quot;Activity repeatability within years&quot;</span>)</code></pre>
+<table>
+<caption>Activity repeatability within years</caption>
+<col width="20%" />
+<col width="16%" />
+<col width="18%" />
+<thead>
+<tr class="header">
+<th align="center">Parameter</th>
+<th align="center">Post.Mode</th>
+<th align="center">Cred.Int.</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="center">ID Variance</td>
+<td align="center">1.33</td>
+<td align="center">(0.97 – 1.81)</td>
+</tr>
+<tr class="even">
+<td align="center">Phen. Variance</td>
+<td align="center">2.45</td>
+<td align="center">(2.25 – 2.95)</td>
+</tr>
+<tr class="odd">
+<td align="center">Repeatability</td>
+<td align="center">0.54</td>
+<td align="center">(0.43 – 0.62)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="repeatability-summary">Repeatability Summary</h2>
+<pre class="sourceCode r"><code class="sourceCode r">d &lt;-<span class="st"> </span>function(x){<span class="kw">paste</span>(x[<span class="dv">1</span>], x[<span class="dv">2</span>])}
+table_summary &lt;-<span class="st"> </span><span class="kw">data.frame</span>(
+  <span class="dt">Behaviour =</span> <span class="kw">c</span>(<span class="st">&quot;Aggression&quot;</span>, <span class="st">&quot;Activity&quot;</span>, <span class="st">&quot;Docility&quot;</span>),
+  <span class="dt">All    =</span> <span class="kw">c</span>(<span class="kw">d</span>(agRv), <span class="kw">d</span>(acRv), <span class="kw">d</span>(dRv)),
+  <span class="dt">Across =</span> <span class="kw">c</span>(<span class="kw">d</span>(agRv_a), <span class="kw">d</span>(acRv_a), <span class="kw">d</span>(dRv_a)),
+  <span class="dt">Within =</span> <span class="kw">c</span>(<span class="kw">d</span>(agRv_w), <span class="kw">d</span>(acRv_w), <span class="kw">d</span>(dRv_w))
+  )
+
+<span class="kw">pandoc.table</span>(table_summary, <span class="dt">caption =</span> <span class="st">&quot;Summary of repeatabilities&quot;</span>)</code></pre>
+<table>
+<caption>Summary of repeatabilities (continued below)</caption>
+<col width="16%" />
+<col width="26%" />
+<col width="26%" />
+<thead>
+<tr class="header">
+<th align="center">Behaviour</th>
+<th align="center">All</th>
+<th align="center">Across</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="center">Aggression</td>
+<td align="center">0.39 (0.24 – 0.46)</td>
+<td align="center">0.23 (0.16 – 0.42)</td>
+</tr>
+<tr class="even">
+<td align="center">Activity</td>
+<td align="center">0.48 (0.35 – 0.52)</td>
+<td align="center">0.33 (0.19 – 0.45)</td>
+</tr>
+<tr class="odd">
+<td align="center">Docility</td>
+<td align="center">0.38 (0.33 – 0.40)</td>
+<td align="center">0.32 (0.24 – 0.37)</td>
+</tr>
+</tbody>
+</table>
+<table>
+<col width="25%" />
+<thead>
+<tr class="header">
+<th align="center">Within</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="center">0.50 (0.37 – 0.58)</td>
+</tr>
+<tr class="even">
+<td align="center">0.54 (0.43 – 0.62)</td>
+</tr>
+<tr class="odd">
+<td align="center">0.40 (0.36 – 0.42)</td>
+</tr>
+</tbody>
+</table>
+<h2 id="run-lmer-models">Run lmer models</h2>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">library</span>(lme4)</code></pre>
+<pre><code>## Loading required package: Rcpp</code></pre>
+<h3 id="docility-1">Docility</h3>
+<pre class="sourceCode r"><code class="sourceCode r">doc_data &lt;-<span class="st"> </span>pca_data %&gt;%<span class="st"> </span><span class="kw">filter</span>(!<span class="kw">is.na</span>(docil))
+doc_lmer_model &lt;-<span class="st"> </span><span class="kw">lmer</span>(docil ~<span class="st"> </span><span class="kw">as.factor</span>(Year) +<span class="st"> </span>julian +<span class="st"> </span>Obs +
+<span class="st">  </span>handlevent_year +<span class="st"> </span><span class="kw">I</span>(handlevent_year^<span class="dv">2</span>) +<span class="st"> </span>(<span class="dv">1</span> |<span class="st"> </span>ID), <span class="dt">data =</span> doc_data)
+<span class="kw">save</span>(doc_lmer_model, <span class="dt">file =</span> <span class="st">&quot;data/analyses_data/doc_lmer_model.RData&quot;</span>)</code></pre>
+<h3 id="aggression-1">Aggression</h3>
+<pre class="sourceCode r"><code class="sourceCode r">agg_data &lt;-<span class="st"> </span>pca_data %&gt;%<span class="st"> </span><span class="kw">filter</span>(!<span class="kw">is.na</span>(misPC1))
+agg_lmer_model &lt;-<span class="st"> </span><span class="kw">lmer</span>(misPC1 ~<span class="st">  </span><span class="kw">as.factor</span>(Year) +<span class="st"> </span>julian +<span class="st"> </span>trial_life +
+<span class="st">  </span><span class="kw">I</span>(trial_life^<span class="dv">2</span>) +<span class="st"> </span>(<span class="dv">1</span> |<span class="st"> </span>ID), <span class="dt">data =</span> agg_data)
+<span class="kw">save</span>(agg_lmer_model, <span class="dt">file =</span> <span class="st">&quot;data/analyses_data/agg_lmer_model.RData&quot;</span>)</code></pre>
+<h3 id="activity-1">Activity</h3>
+<pre class="sourceCode r"><code class="sourceCode r">act_data &lt;-<span class="st"> </span>pca_data %&gt;%<span class="st"> </span><span class="kw">filter</span>(!<span class="kw">is.na</span>(ofPC1))
+act_lmer_model &lt;-<span class="st"> </span><span class="kw">lmer</span>(ofPC1 ~<span class="st">  </span><span class="kw">as.factor</span>(Year) +<span class="st"> </span>julian +<span class="st"> </span>trial_life +
+<span class="st">  </span><span class="kw">I</span>(trial_life^<span class="dv">2</span>) +<span class="st"> </span>(<span class="dv">1</span> |<span class="st"> </span>ID), <span class="dt">data =</span> act_data)
+<span class="kw">save</span>(act_lmer_model, <span class="dt">file =</span> <span class="st">&quot;data/analyses_data/act_lmer_model.RData&quot;</span>)</code></pre>
+<h2 id="extract-random-effects-blups">Extract random effects / BLUPs</h2>
+<h3 id="from-mcmcglmm-models">from MCMCglmm models</h3>
+<pre class="sourceCode r"><code class="sourceCode r">extractMCMCglmmRanEffs &lt;-<span class="st"> </span>function(x, trait_name){
+  <span class="kw">library</span>(dplyr)
+  <span class="kw">library</span>(MCMCglmm)  
+  <span class="co"># Now get the posterior distribution, so we can pass variance in behavioral </span>
+  <span class="co"># estimate on to further analyses. 1000 sets of random effects saved.</span>
+  sols &lt;-<span class="st"> </span><span class="kw">data.frame</span>(x$Sol) ## Get random effects
+  sols &lt;-<span class="st"> </span>sols[ ,<span class="kw">grep</span>(<span class="st">&quot;ID&quot;</span>, <span class="kw">names</span>(sols))] ## Get all the ID columns
+  sols &lt;-<span class="st"> </span><span class="kw">stack</span>(sols)
+  <span class="kw">names</span>(sols) &lt;-<span class="st"> </span><span class="kw">c</span>(trait_name, <span class="st">&quot;ID&quot;</span>)
+  sols$itt &lt;-<span class="st"> </span><span class="dv">1</span>:<span class="dv">1000</span> <span class="co"># Just an index for each set of random effects (e.g. each </span>
+                     <span class="co"># MCMC sample)</span>
+  sols$ID &lt;-<span class="st"> </span><span class="kw">gsub</span>(<span class="st">&quot;ID</span><span class="ch">\\</span><span class="st">.&quot;</span>, <span class="st">&quot;&quot;</span>, sols$ID)
+  sols$type &lt;-<span class="st"> &quot;raneff&quot;</span>
+  <span class="kw">tbl_df</span>(sols)
+}
+
+<span class="kw">load</span>(<span class="st">&quot;data/analyses_data/doc_mcmc_model.RData&quot;</span>)
+doc_mcmc_raneffs &lt;-<span class="st"> </span><span class="kw">extractMCMCglmmRanEffs</span>(doc_mcmc_model,
+  <span class="dt">trait_name =</span> <span class="st">&quot;docility&quot;</span>)
+
+<span class="kw">load</span>(<span class="st">&quot;data/analyses_data/agg_mcmc_model.RData&quot;</span>)
+agg_mcmc_raneffs &lt;-<span class="st"> </span><span class="kw">extractMCMCglmmRanEffs</span>(agg_mcmc_model,
+  <span class="dt">trait_name =</span> <span class="st">&quot;aggression&quot;</span>)
+
+<span class="kw">load</span>(<span class="st">&quot;data/analyses_data/act_mcmc_model.RData&quot;</span>)
+act_mcmc_raneffs &lt;-<span class="st"> </span><span class="kw">extractMCMCglmmRanEffs</span>(act_mcmc_model,
+  <span class="dt">trait_name =</span> <span class="st">&quot;activity&quot;</span>)
+
+<span class="co"># No dplyr outer join?</span>
+mcmc_raneffs &lt;-<span class="st"> </span><span class="kw">merge</span>(doc_mcmc_raneffs, agg_mcmc_raneffs,
+  <span class="dt">by =</span> <span class="kw">c</span>(<span class="st">&quot;ID&quot;</span>, <span class="st">&quot;itt&quot;</span>, <span class="st">&quot;type&quot;</span>), <span class="dt">all =</span> <span class="ot">TRUE</span>)
+mcmc_raneffs &lt;-<span class="st"> </span><span class="kw">merge</span>(mcmc_raneffs, act_mcmc_raneffs,
+  <span class="dt">by =</span> <span class="kw">c</span>(<span class="st">&quot;ID&quot;</span>, <span class="st">&quot;itt&quot;</span>, <span class="st">&quot;type&quot;</span>), <span class="dt">all =</span> <span class="ot">TRUE</span>)
+
+mcmc_raneffs &lt;-<span class="st"> </span><span class="kw">tbl_df</span>(mcmc_raneffs)
+
+<span class="kw">save</span>(mcmc_raneffs, <span class="dt">file =</span> <span class="st">&quot;data/analyses_data/MCMCraneffs.RData&quot;</span>)</code></pre>
+<h3 id="from-lmer-models">from lmer models</h3>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">load</span>(<span class="st">&quot;data/analyses_data/doc_lmer_model.RData&quot;</span>)
+<span class="kw">load</span>(<span class="st">&quot;data/analyses_data/agg_lmer_model.RData&quot;</span>)
+<span class="kw">load</span>(<span class="st">&quot;data/analyses_data/act_lmer_model.RData&quot;</span>)
+
+extractLmerBLUPs &lt;-<span class="st"> </span>function(x, value){
+  <span class="kw">require</span>(dplyr)
+  <span class="kw">require</span>(lme4)
+  blups &lt;-<span class="st"> </span><span class="kw">ranef</span>(x)$ID
+  blups$ID &lt;-<span class="st"> </span><span class="kw">rownames</span>(blups)
+  <span class="kw">names</span>(blups) &lt;-<span class="st"> </span><span class="kw">c</span>(value, <span class="st">&quot;ID&quot;</span>)
+  blups$itt &lt;-<span class="st"> </span><span class="dv">0</span>  ## NOTE itt == 0 is BLUPs
+  blups$type &lt;-<span class="st"> &quot;blup&quot;</span>
+  <span class="kw">tbl_df</span>(blups)
+}
+
+doc_lmer_model.blups &lt;-<span class="st"> </span><span class="kw">extractLmerBLUPs</span>(doc_lmer_model, <span class="st">&quot;docility&quot;</span>)
+agg_lmer_model.blups &lt;-<span class="st"> </span><span class="kw">extractLmerBLUPs</span>(agg_lmer_model, <span class="st">&quot;aggression&quot;</span>)
+act_lmer_model.blups &lt;-<span class="st"> </span><span class="kw">extractLmerBLUPs</span>(act_lmer_model, <span class="st">&quot;activity&quot;</span>)
+
+<span class="co"># No outer join for dplyr?</span>
+lmer_blups &lt;-<span class="st"> </span><span class="kw">merge</span>(doc_lmer_model.blups, agg_lmer_model.blups, <span class="dt">all =</span> <span class="ot">TRUE</span>)
+lmer_blups &lt;-<span class="st"> </span><span class="kw">merge</span>(lmer_blups, act_lmer_model.blups, <span class="dt">all =</span> <span class="ot">TRUE</span>)
+lmer_blups &lt;-<span class="st"> </span><span class="kw">tbl_df</span>(lmer_blups)
+<span class="kw">save</span>(lmer_blups, <span class="dt">file =</span> <span class="st">&quot;data/analyses_data/lmer_blups.RData&quot;</span>)</code></pre>
+<h3 id="rbind-mcmc-raneffs-and-blups">rbind MCMC raneffs and BLUPs</h3>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">load</span>(<span class="st">&quot;data/analyses_data/MCMCraneffs.RData&quot;</span>)
+<span class="kw">load</span>(<span class="st">&quot;data/analyses_data/doc_lmer_model.RData&quot;</span>)
+raneffs_blups &lt;-<span class="st"> </span><span class="kw">rbind</span>(mcmc_raneffs, lmer_blups)
+
+<span class="kw">save</span>(raneffs_blups, <span class="dt">file =</span> <span class="st">&quot;data/analyses_data/raneffs_blups.RData&quot;</span>)</code></pre>
+<h3 id="rescale-docility-raneffs-blups">Rescale docility raneffs &amp; BLUPs</h3>
+<p>The docility BLUPs can be rescaled to the raw docility measurement. Aggression and activity are based on PCA scores and so are unit/scaleless so no need to rescale.</p>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">load</span>(<span class="st">&quot;data/analyses_data/raneffs_blups.RData&quot;</span>)
+<span class="kw">load</span>(<span class="st">&quot;data/analyses_data/doc_mcmc_model.RData&quot;</span>)
+<span class="kw">load</span>(<span class="st">&quot;data/analyses_data/doc_lmer_model.RData&quot;</span>)
+<span class="co"># The intercepts are nearly indentical, as expected, but we&#39;ll keep them </span>
+<span class="co"># separate for consistency</span>
+lmer_model_intercept &lt;-<span class="st"> </span><span class="kw">summary</span>(doc_lmer_model)$coefficients[<span class="st">&quot;(Intercept)&quot;</span>,
+                                <span class="st">&quot;Estimate&quot;</span>]
+mcmc_model_intercept &lt;-<span class="st">  </span><span class="kw">summary</span>(doc_mcmc_model)$solutions[<span class="st">&quot;(Intercept)&quot;</span>,
+                                <span class="st">&quot;post.mean&quot;</span>]
+
+raneffs_blups$docility[raneffs_blups$type ==<span class="st"> &quot;raneff&quot;</span>] &lt;-<span class="st"> </span>
+<span class="st">  </span>raneffs_blups$docility[raneffs_blups$type ==<span class="st"> &quot;raneff&quot;</span>] +<span class="st"> </span>mcmc_model_intercept
+
+raneffs_blups$docility[raneffs_blups$type ==<span class="st"> &quot;blup&quot;</span>] &lt;-<span class="st"> </span>
+<span class="st">  </span>raneffs_blups$docility[raneffs_blups$type ==<span class="st"> &quot;blup&quot;</span>] +<span class="st"> </span>lmer_model_intercept
+
+<span class="kw">save</span>(raneffs_blups, <span class="dt">file =</span> <span class="st">&quot;data/analyses_data/raneffs_blups.RData&quot;</span>)</code></pre>
+<h2 id="model-diagnostics">Model Diagnostics</h2>
+<h3 id="docility-2">Docility</h3>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">load</span>(<span class="st">&quot;data/analyses_data/doc_mcmc_model.RData&quot;</span>)
+<span class="kw">autocorr.diag</span>(doc_mcmc_model$VCV)</code></pre>
+<pre><code>##                 ID     units
+## Lag 0     1.000000  1.000000
+## Lag 500   0.002313 -0.036398
+## Lag 2500  0.017386  0.008852
+## Lag 5000  0.035184  0.006301
+## Lag 25000 0.008448  0.007935</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">geweke.diag</span>(doc_mcmc_model$VCV)</code></pre>
+<pre><code>## 
+## Fraction in 1st window = 0.1
+## Fraction in 2nd window = 0.5 
+## 
+##     ID  units 
+## 0.4782 0.5114</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">heidel.diag</span>(doc_mcmc_model$VCV)</code></pre>
+<pre><code>##                                     
+##       Stationarity start     p-value
+##       test         iteration        
+## ID    passed       1         0.521  
+## units passed       1         0.706  
+##                               
+##       Halfwidth Mean Halfwidth
+##       test                    
+## ID    passed    19.3 0.0897   
+## units passed    33.5 0.0506</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">plot</span>(doc_mcmc_model$VCV)</code></pre>
+<div class="figure">
+<img src="figure/02_docility_diagnostics.png" />
+</div>
+<h3 id="aggression-2">Aggression</h3>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">load</span>(<span class="st">&quot;data/analyses_data/agg_mcmc_model.RData&quot;</span>)
+<span class="kw">autocorr.diag</span>(agg_mcmc_model$VCV)</code></pre>
+<pre><code>##                   ID     units
+## Lag 0      1.0000000  1.000000
+## Lag 500    0.0192333 -0.004458
+## Lag 2500   0.0228034  0.020507
+## Lag 5000  -0.0009168 -0.036696
+## Lag 25000  0.0020479 -0.024898</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">geweke.diag</span>(agg_mcmc_model$VCV)</code></pre>
+<pre><code>## 
+## Fraction in 1st window = 0.1
+## Fraction in 2nd window = 0.5 
+## 
+##     ID  units 
+##  2.604 -2.004</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">heidel.diag</span>(agg_mcmc_model$VCV)</code></pre>
+<pre><code>##                                     
+##       Stationarity start     p-value
+##       test         iteration        
+## ID    passed       1         0.467  
+## units passed       1         0.938  
+##                               
+##       Halfwidth Mean Halfwidth
+##       test                    
+## ID    passed    1.01 0.0139   
+## units passed    1.79 0.0116</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">plot</span>(agg_mcmc_model$VCV)</code></pre>
+<div class="figure">
+<img src="figure/02_aggression_diagnostics.png" />
+</div>
+<h3 id="activity-2">Activity</h3>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">load</span>(<span class="st">&quot;data/analyses_data/act_mcmc_model.RData&quot;</span>)
+<span class="kw">autocorr.diag</span>(act_mcmc_model$VCV)</code></pre>
+<pre><code>##                 ID     units
+## Lag 0      1.00000  1.000000
+## Lag 500   -0.01143 -0.001613
+## Lag 2500  -0.02268 -0.003608
+## Lag 5000   0.03577 -0.017001
+## Lag 25000  0.01260  0.003523</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">geweke.diag</span>(act_mcmc_model$VCV)</code></pre>
+<pre><code>## 
+## Fraction in 1st window = 0.1
+## Fraction in 2nd window = 0.5 
+## 
+##     ID  units 
+## 0.5648 0.3727</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">heidel.diag</span>(act_mcmc_model$VCV)</code></pre>
+<pre><code>##                                     
+##       Stationarity start     p-value
+##       test         iteration        
+## ID    passed       1         0.849  
+## units passed       1         0.683  
+##                               
+##       Halfwidth Mean Halfwidth
+##       test                    
+## ID    passed    1.14 0.01120  
+## units passed    1.42 0.00879</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">plot</span>(act_mcmc_model$VCV)</code></pre>
+<div class="figure">
+<img src="figure/02_activity_diagnostics.png" />
+</div>
+</body>
+</html>

@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="generator" content="pandoc">
+  <title></title>
+  <style type="text/css">code{white-space: pre;}</style>
+  <!--[if lt IE 9]>
+    <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+  <![endif]-->
+  <style type="text/css">
+table.sourceCode, tr.sourceCode, td.lineNumbers, td.sourceCode {
+  margin: 0; padding: 0; vertical-align: baseline; border: none; }
+table.sourceCode { width: 100%; line-height: 100%; }
+td.lineNumbers { text-align: right; padding-right: 4px; padding-left: 4px; color: #aaaaaa; border-right: 1px solid #aaaaaa; }
+td.sourceCode { padding-left: 5px; }
+code > span.kw { color: #007020; font-weight: bold; }
+code > span.dt { color: #902000; }
+code > span.dv { color: #40a070; }
+code > span.bn { color: #40a070; }
+code > span.fl { color: #40a070; }
+code > span.ch { color: #4070a0; }
+code > span.st { color: #4070a0; }
+code > span.co { color: #60a0b0; font-style: italic; }
+code > span.ot { color: #007020; }
+code > span.al { color: #ff0000; font-weight: bold; }
+code > span.fu { color: #06287e; }
+code > span.er { color: #ff0000; font-weight: bold; }
+body {max-width:600px; padding:10px;}
+  </style>
+</head>
+<body>
+<nav id="TOC">
+<ul>
+<li><a href="#assessing-the-effect-of-priors-on-blups">Assessing the effect of priors on BLUPs</a><ul>
+<li><a href="#priors">Priors</a></li>
+<li><a href="#run-models">Run models</a><ul>
+<li><a href="#model-diagnostics">Model Diagnostics</a></li>
+</ul></li>
+<li><a href="#extract-raneffs">Extract raneffs</a></li>
+<li><a href="#compare-mcmc-priors">Compare MCMC priors</a><ul>
+<li><a href="#posterior-modes">Posterior modes</a></li>
+<li><a href="#variance-of-blups">Variance of blups</a></li>
+</ul></li>
+</ul></li>
+</ul>
+</nav>
+
+
+
+<!--pandoc
+t: html
+default-image-extension: png
+template: templates/html.template
+toc-depth: 4
+toc:
+
+t: latex
+s:
+S:
+latex-engine: xelatex
+template: templates/latex.template
+default-image-extension: pdf
+toc-depth: 4
+toc:
+-->
+
+
+<h1 id="assessing-the-effect-of-priors-on-blups">Assessing the effect of priors on BLUPs</h1>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">load</span>(<span class="st">&quot;data/analyses_data/pca.RData&quot;</span>)
+<span class="kw">library</span>(tidyr)
+<span class="kw">library</span>(dplyr)
+<span class="kw">library</span>(MCMCglmm)
+<span class="kw">library</span>(pander)
+<span class="kw">set.alignment</span>(<span class="st">&#39;right&#39;</span>, <span class="dt">row.names =</span> <span class="st">&#39;left&#39;</span>)
+
+doc_data &lt;-<span class="st"> </span>pca_data %&gt;%<span class="st"> </span><span class="kw">filter</span>(!<span class="kw">is.na</span>(docil))
+agg_data &lt;-<span class="st"> </span>pca_data %&gt;%<span class="st"> </span><span class="kw">filter</span>(!<span class="kw">is.na</span>(misPC1))
+act_data &lt;-<span class="st"> </span>pca_data %&gt;%<span class="st"> </span><span class="kw">filter</span>(!<span class="kw">is.na</span>(ofPC1))</code></pre>
+<h2 id="priors">Priors</h2>
+<p>From a post to r-sig-me by Ned Dochterman</p>
+<ol style="list-style-type: decimal">
+<li>Parameter expanded</li>
+<li>Another parameter expanded just to see if results vary across runs</li>
+<li>Parameter expanded variance = docility variance</li>
+<li>Parameter expanded really high variance</li>
+<li>Inverse Wishart</li>
+<li>Inverse Gamma</li>
+<li>Flat, uniform, prior for just a variance</li>
+<li>Flat improper prior, equivalent to REML fitting.</li>
+</ol>
+<pre class="sourceCode r"><code class="sourceCode r">priors &lt;-<span class="st"> </span><span class="kw">list</span>(
+  <span class="kw">list</span>(
+    <span class="dt">G=</span><span class="kw">list</span>(<span class="dt">G1=</span><span class="kw">list</span>(<span class="dt">V=</span><span class="dv">1</span>, <span class="dt">nu=</span><span class="dv">1</span>, <span class="dt">alpha.mu =</span> <span class="dv">0</span>, <span class="dt">alpha.V =</span> <span class="dv">10000</span>)),
+    <span class="dt">R=</span><span class="kw">list</span>(<span class="dt">V=</span><span class="dv">1</span>, <span class="dt">nu=</span><span class="dv">1</span>)
+  ),
+  <span class="kw">list</span>(
+    <span class="dt">G=</span><span class="kw">list</span>(<span class="dt">G1=</span><span class="kw">list</span>(<span class="dt">V=</span><span class="dv">1</span>, <span class="dt">nu=</span><span class="dv">1</span>, <span class="dt">alpha.mu =</span> <span class="dv">0</span>, <span class="dt">alpha.V =</span> <span class="dv">10000</span>)),
+    <span class="dt">R=</span><span class="kw">list</span>(<span class="dt">V=</span><span class="dv">1</span>, <span class="dt">nu=</span><span class="dv">1</span>)
+  ),
+  <span class="kw">list</span>(
+    <span class="dt">G=</span><span class="kw">list</span>(
+      <span class="dt">G1=</span><span class="kw">list</span>(
+        <span class="dt">V=</span><span class="kw">var</span>(doc_data$docil, <span class="dt">na.rm =</span> <span class="ot">TRUE</span>), <span class="dt">nu=</span><span class="dv">1</span>, <span class="dt">alpha.mu =</span> <span class="dv">0</span>,
+          <span class="dt">alpha.V =</span> <span class="dv">10000</span>
+      )
+    ),
+    <span class="dt">R=</span><span class="kw">list</span>(<span class="dt">V=</span><span class="kw">var</span>(doc_data$docil, <span class="dt">na.rm =</span> <span class="ot">TRUE</span>), <span class="dt">nu=</span><span class="dv">1</span>)
+  ),
+  <span class="kw">list</span>(
+    <span class="dt">G=</span><span class="kw">list</span>(<span class="dt">G1=</span><span class="kw">list</span>(<span class="dt">V=</span><span class="dv">1000</span>, <span class="dt">nu=</span><span class="dv">1</span>, <span class="dt">alpha.mu =</span> <span class="dv">0</span>, <span class="dt">alpha.V =</span> <span class="dv">1000</span>)),
+    <span class="dt">R=</span><span class="kw">list</span>(<span class="dt">V=</span><span class="dv">1000</span>, <span class="dt">nu=</span><span class="dv">1</span>)
+  ),
+  <span class="kw">list</span>(<span class="dt">G=</span><span class="kw">list</span>(<span class="dt">G1=</span><span class="kw">list</span>(<span class="dt">V=</span><span class="dv">1</span>, <span class="dt">nu=</span><span class="dv">1</span>)), <span class="dt">R=</span><span class="kw">list</span>(<span class="dt">V=</span><span class="dv">1</span>, <span class="dt">nu=</span><span class="dv">1</span>)),
+  <span class="kw">list</span>(<span class="dt">G=</span><span class="kw">list</span>(<span class="dt">G1=</span><span class="kw">list</span>(<span class="dt">V=</span><span class="dv">1</span>, <span class="dt">nu=</span><span class="fl">0.002</span>)), <span class="dt">R=</span><span class="kw">list</span>(<span class="dt">V=</span><span class="dv">1</span>, <span class="dt">nu=</span><span class="fl">0.002</span>)),
+  <span class="kw">list</span>(<span class="dt">G=</span><span class="kw">list</span>(<span class="dt">G1=</span><span class="kw">list</span>(<span class="dt">V=</span><span class="fl">1e-16</span>, <span class="dt">nu=</span>-<span class="dv">2</span>)), <span class="dt">R=</span><span class="kw">list</span>(<span class="dt">V=</span><span class="fl">1e-16</span>, <span class="dt">nu=</span>-<span class="dv">2</span>))  ,
+  <span class="kw">list</span>(<span class="dt">G=</span><span class="kw">list</span>(<span class="dt">G1=</span><span class="kw">list</span>(<span class="dt">V=</span><span class="dv">1</span>,<span class="dt">nu=</span><span class="dv">0</span>)),<span class="dt">R =</span> <span class="kw">list</span>(<span class="dt">V =</span><span class="dv">1</span>, <span class="dt">nu =</span> <span class="dv">0</span>))
+)</code></pre>
+<h2 id="run-models">Run models</h2>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">library</span>(foreach)</code></pre>
+<pre><code>## foreach: simple, scalable parallel programming from Revolution Analytics
+## Use Revolution R for scalability, fault tolerance and more.
+## http://www.revolutionanalytics.com</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">library</span>(doMC)</code></pre>
+<pre><code>## Loading required package: iterators
+## Loading required package: parallel</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">registerDoMC</span>(<span class="dt">cores =</span> <span class="dv">8</span>)
+
+thin &lt;-<span class="st"> </span><span class="dv">100</span>
+burnin &lt;-<span class="st"> </span>thin *<span class="st"> </span><span class="dv">100</span>
+nitt &lt;-<span class="st"> </span>burnin +<span class="st"> </span>thin *<span class="st"> </span><span class="dv">1000</span>
+
+time_start &lt;-<span class="st"> </span><span class="kw">Sys.time</span>()
+m_priors &lt;-<span class="st"> </span><span class="kw">foreach</span>(<span class="dt">i =</span> <span class="dv">1</span>:<span class="kw">length</span>(priors)) %dopar%<span class="st"> </span>{
+  <span class="kw">MCMCglmm</span>(docil ~<span class="st"> </span>julian +<span class="st"> </span>Obs +<span class="st"> </span>handlevent_year +<span class="st"> </span><span class="kw">I</span>(handlevent_year^<span class="dv">2</span>),
+                                    <span class="dt">random =</span> ~<span class="st"> </span>ID,
+                                    <span class="dt">prior =</span> priors[[i]],
+                                    <span class="dt">pr =</span> <span class="ot">TRUE</span>,
+                                    <span class="dt">data =</span> doc_data,
+                                    <span class="dt">thin =</span> thin,
+                                    <span class="dt">burnin =</span> burnin,
+                                    <span class="dt">nitt =</span> nitt,
+                                    <span class="dt">verbose =</span> <span class="ot">FALSE</span>
+                                    )
+}
+<span class="kw">print</span>(<span class="kw">paste</span>(<span class="st">&quot;Approx. models run time: &quot;</span>, <span class="kw">format</span>(<span class="kw">Sys.time</span>() -<span class="st"> </span>time_start)))</code></pre>
+<pre><code>## [1] &quot;Approx. models run time:  8.042 mins&quot;</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">save</span>(m_priors, <span class="dt">file =</span> <span class="st">&quot;data/analyses_data/m_priors.RData&quot;</span>)</code></pre>
+<h3 id="model-diagnostics">Model Diagnostics</h3>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">load</span>(<span class="st">&quot;data/analyses_data/m_priors.RData&quot;</span>)
+
+ad &lt;-<span class="st"> </span><span class="kw">list</span>()
+gd &lt;-<span class="st"> </span><span class="kw">list</span>()
+hd &lt;-<span class="st"> </span><span class="kw">list</span>()
+
+for(i in <span class="dv">1</span>:<span class="kw">length</span>(priors)){
+  ad[[i]] &lt;-<span class="st"> </span><span class="kw">autocorr.diag</span>(m_priors[[i]]$VCV)
+  gd[[i]] &lt;-<span class="st"> </span><span class="kw">geweke.diag</span>(m_priors[[i]]$VCV)
+  hd[[i]] &lt;-<span class="st"> </span><span class="kw">heidel.diag</span>(m_priors[[i]]$VCV)  
+}
+ad</code></pre>
+<pre><code>## [[1]]
+##                ID    units
+## Lag 0     1.00000  1.00000
+## Lag 100  -0.02922 -0.03013
+## Lag 500   0.01560  0.02187
+## Lag 1000 -0.05264 -0.03655
+## Lag 5000  0.01480  0.01472
+## 
+## [[2]]
+##                 ID     units
+## Lag 0     1.000000  1.000000
+## Lag 100  -0.038620 -0.005688
+## Lag 500  -0.038033  0.062510
+## Lag 1000  0.041033  0.021035
+## Lag 5000  0.008467 -0.030301
+## 
+## [[3]]
+##                 ID     units
+## Lag 0     1.000000  1.000000
+## Lag 100  -0.047543  0.048670
+## Lag 500   0.003440 -0.002852
+## Lag 1000 -0.005587  0.011396
+## Lag 5000  0.003182  0.007828
+## 
+## [[4]]
+##                  ID    units
+## Lag 0     1.0000000  1.00000
+## Lag 100   0.0004055 -0.02710
+## Lag 500   0.0480595 -0.03198
+## Lag 1000  0.0189893  0.02511
+## Lag 5000 -0.0272179  0.01032
+## 
+## [[5]]
+##                ID    units
+## Lag 0     1.00000  1.00000
+## Lag 100   0.06009 -0.03227
+## Lag 500   0.06123  0.02975
+## Lag 1000  0.01682 -0.01543
+## Lag 5000 -0.05175  0.03395
+## 
+## [[6]]
+##                  ID    units
+## Lag 0     1.0000000  1.00000
+## Lag 100   0.0002831 -0.03890
+## Lag 500   0.0032093 -0.02185
+## Lag 1000 -0.0009037  0.05010
+## Lag 5000 -0.0424693 -0.02452
+## 
+## [[7]]
+##                 ID    units
+## Lag 0     1.000000  1.00000
+## Lag 100   0.025706  0.03615
+## Lag 500  -0.018627  0.02782
+## Lag 1000  0.007562  0.05121
+## Lag 5000 -0.035466 -0.02292
+## 
+## [[8]]
+##                ID     units
+## Lag 0     1.00000  1.000000
+## Lag 100  -0.02928 -0.006564
+## Lag 500  -0.05204  0.022471
+## Lag 1000 -0.01659  0.063554
+## Lag 5000 -0.01517 -0.023190</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r">gd</code></pre>
+<pre><code>## [[1]]
+## 
+## Fraction in 1st window = 0.1
+## Fraction in 2nd window = 0.5 
+## 
+##     ID  units 
+## 0.5828 0.5301 
+## 
+## 
+## [[2]]
+## 
+## Fraction in 1st window = 0.1
+## Fraction in 2nd window = 0.5 
+## 
+##       ID    units 
+## -0.02447 -1.64978 
+## 
+## 
+## [[3]]
+## 
+## Fraction in 1st window = 0.1
+## Fraction in 2nd window = 0.5 
+## 
+##      ID   units 
+## -0.4845  2.2787 
+## 
+## 
+## [[4]]
+## 
+## Fraction in 1st window = 0.1
+## Fraction in 2nd window = 0.5 
+## 
+##    ID units 
+## 2.160 1.382 
+## 
+## 
+## [[5]]
+## 
+## Fraction in 1st window = 0.1
+## Fraction in 2nd window = 0.5 
+## 
+##      ID   units 
+## -0.4190 -0.1041 
+## 
+## 
+## [[6]]
+## 
+## Fraction in 1st window = 0.1
+## Fraction in 2nd window = 0.5 
+## 
+##      ID   units 
+##  0.1051 -1.3288 
+## 
+## 
+## [[7]]
+## 
+## Fraction in 1st window = 0.1
+## Fraction in 2nd window = 0.5 
+## 
+##       ID    units 
+## -0.07847 -2.51430 
+## 
+## 
+## [[8]]
+## 
+## Fraction in 1st window = 0.1
+## Fraction in 2nd window = 0.5 
+## 
+##      ID   units 
+## -0.3845 -0.1387</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r">hd</code></pre>
+<pre><code>## [[1]]
+##                                     
+##       Stationarity start     p-value
+##       test         iteration        
+## ID    passed       1         0.794  
+## units passed       1         0.321  
+##                               
+##       Halfwidth Mean Halfwidth
+##       test                    
+## ID    passed    19.3 0.0880   
+## units passed    33.5 0.0514   
+## 
+## [[2]]
+##                                     
+##       Stationarity start     p-value
+##       test         iteration        
+## ID    passed       1         0.2942 
+## units passed       1         0.0967 
+##                               
+##       Halfwidth Mean Halfwidth
+##       test                    
+## ID    passed    19.3 0.0896   
+## units passed    33.5 0.0500   
+## 
+## [[3]]
+##                                     
+##       Stationarity start     p-value
+##       test         iteration        
+## ID    passed       1         0.800  
+## units passed       1         0.387  
+##                               
+##       Halfwidth Mean Halfwidth
+##       test                    
+## ID    passed    19.2 0.0906   
+## units passed    33.5 0.0537   
+## 
+## [[4]]
+##                                     
+##       Stationarity start     p-value
+##       test         iteration        
+## ID    passed       101       0.0706 
+## units passed       301       0.1075 
+##                               
+##       Halfwidth Mean Halfwidth
+##       test                    
+## ID    passed    19.2 0.0928   
+## units passed    33.7 0.0623   
+## 
+## [[5]]
+##                                     
+##       Stationarity start     p-value
+##       test         iteration        
+## ID    passed       1         0.572  
+## units passed       1         0.723  
+##                               
+##       Halfwidth Mean Halfwidth
+##       test                    
+## ID    passed    19.2 0.0943   
+## units passed    33.5 0.0501   
+## 
+## [[6]]
+##                                     
+##       Stationarity start     p-value
+##       test         iteration        
+## ID    passed       1         0.278  
+## units passed       1         0.102  
+##                               
+##       Halfwidth Mean Halfwidth
+##       test                    
+## ID    passed    19.2 0.0878   
+## units passed    33.5 0.0495   
+## 
+## [[7]]
+##                                     
+##       Stationarity start     p-value
+##       test         iteration        
+## ID    passed       1         0.784  
+## units passed       1         0.487  
+##                               
+##       Halfwidth Mean Halfwidth
+##       test                    
+## ID    passed    19.4 0.0895   
+## units passed    33.5 0.0513   
+## 
+## [[8]]
+##                                     
+##       Stationarity start     p-value
+##       test         iteration        
+## ID    passed       1         0.535  
+## units passed       1         0.958  
+##                               
+##       Halfwidth Mean Halfwidth
+##       test                    
+## ID    passed    19.2 0.0883   
+## units passed    33.5 0.0515</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r">for(i in <span class="dv">1</span>:<span class="kw">length</span>(priors)){
+  <span class="kw">plot</span>(m_priors[[i]]$VCV)
+}</code></pre>
+<p><img src="figure/02b_diagnostic_plots1.png" alt="FALSE" /> <img src="figure/02b_diagnostic_plots2.png" alt="FALSE" /> <img src="figure/02b_diagnostic_plots3.png" alt="FALSE" /> <img src="figure/02b_diagnostic_plots4.png" alt="FALSE" /> <img src="figure/02b_diagnostic_plots5.png" alt="FALSE" /> <img src="figure/02b_diagnostic_plots6.png" alt="FALSE" /> <img src="figure/02b_diagnostic_plots7.png" alt="FALSE" /> <img src="figure/02b_diagnostic_plots8.png" alt="FALSE" /></p>
+<h2 id="extract-raneffs">Extract raneffs</h2>
+<pre class="sourceCode r"><code class="sourceCode r">extractMCMCglmmBLUPs &lt;-<span class="st"> </span>function(x, value, <span class="dt">ptype =</span> <span class="st">&quot;1&quot;</span>){
+  p_modes &lt;-<span class="st"> </span><span class="kw">posterior.mode</span>(x$Sol) ## Get posterior_modes of the BLUPs
+  p_modes &lt;-<span class="st"> </span>p_modes[<span class="kw">grep</span>(<span class="st">&quot;ID&quot;</span>, <span class="kw">names</span>(p_modes))] ## Get all the ID rows
+  p_modes &lt;-<span class="st"> </span><span class="kw">stack</span>(p_modes)
+  <span class="kw">names</span>(p_modes) &lt;-<span class="st"> </span><span class="kw">c</span>(value, <span class="st">&quot;ID&quot;</span>)
+  p_modes$type &lt;-<span class="st"> </span><span class="kw">paste</span>(<span class="st">&quot;mcmc.mode&quot;</span>, ptype, <span class="dt">sep =</span> <span class="st">&#39;.&#39;</span>)
+  p_modes$ID &lt;-<span class="st"> </span><span class="kw">gsub</span>(<span class="st">&quot;ID</span><span class="ch">\\</span><span class="st">.&quot;</span>, <span class="st">&quot;&quot;</span>, p_modes$ID)
+  p_modes$itt &lt;-<span class="st"> </span><span class="ot">NA</span>
+  sols &lt;-<span class="st"> </span><span class="kw">data.frame</span>(x$Sol) ## Get BLUPs
+  sols &lt;-<span class="st"> </span>sols[ ,<span class="kw">grep</span>(<span class="st">&quot;ID&quot;</span>, <span class="kw">names</span>(sols))] ## Get all the ID columns
+  sols &lt;-<span class="st"> </span><span class="kw">stack</span>(sols)
+  <span class="kw">names</span>(sols) &lt;-<span class="st"> </span><span class="kw">c</span>(value, <span class="st">&quot;ID&quot;</span>)
+  sols$itt &lt;-<span class="st"> </span><span class="dv">1</span>:<span class="dv">1000</span> ## Just an index for each MCMC sample
+  sols$type =<span class="st"> </span><span class="kw">paste</span>(<span class="st">&quot;mcmc&quot;</span>, ptype, <span class="dt">sep =</span> <span class="st">&#39;.&#39;</span>)
+  sols$ID &lt;-<span class="st"> </span><span class="kw">gsub</span>(<span class="st">&quot;ID</span><span class="ch">\\</span><span class="st">.&quot;</span>, <span class="st">&quot;&quot;</span>, sols$ID)
+  <span class="kw">rbind</span>(sols, p_modes)
+}
+
+doc_mcmc &lt;-<span class="st"> </span><span class="kw">list</span>()
+for(i in <span class="dv">1</span>:<span class="kw">length</span>(priors)){
+  doc_mcmc[[i]] &lt;-<span class="st"> </span><span class="kw">extractMCMCglmmBLUPs</span>(m_priors[[i]],
+    <span class="dt">value =</span> <span class="st">&quot;docility&quot;</span>, <span class="dt">ptype =</span> i)  
+}
+
+mcmc_priors &lt;-<span class="st"> </span><span class="kw">do.call</span>(<span class="st">&quot;rbind&quot;</span>, doc_mcmc)</code></pre>
+<h2 id="compare-mcmc-priors">Compare MCMC priors</h2>
+<p>Comparing the effect of priors on the posterior distributions.</p>
+<h3 id="posterior-modes">Posterior modes</h3>
+<pre class="sourceCode r"><code class="sourceCode r">mcmc_modes &lt;-<span class="st"> </span>mcmc_priors[<span class="kw">grep</span>(<span class="st">&quot;mode&quot;</span>, mcmc_priors$type), ]
+mcmc_modes$itt &lt;-<span class="st"> </span><span class="ot">NULL</span>
+mcmc_modes &lt;-<span class="st"> </span><span class="kw">spread</span>(mcmc_modes, type, docility)
+
+cov_modes &lt;-<span class="st"> </span><span class="kw">cov</span>(mcmc_modes[ ,<span class="dv">2</span>:<span class="kw">ncol</span>(mcmc_modes)])
+cor_modes &lt;-<span class="st"> </span><span class="kw">cor</span>(mcmc_modes[ ,<span class="dv">2</span>:<span class="kw">ncol</span>(mcmc_modes)])
+
+cov_modes[<span class="kw">upper.tri</span>(cov_modes)] &lt;-<span class="st"> </span>cor_modes[<span class="kw">upper.tri</span>(cor_modes)]
+
+<span class="kw">pandoc.table</span>(cov_modes)</code></pre>
+<table>
+<caption>Table continues below</caption>
+<col width="25%" />
+<col width="19%" />
+<col width="19%" />
+<col width="19%" />
+<thead>
+<tr class="header">
+<th align="left"> </th>
+<th align="right">mcmc.mode.1</th>
+<th align="right">mcmc.mode.2</th>
+<th align="right">mcmc.mode.3</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left"><strong>mcmc.mode.1</strong></td>
+<td align="right">12.03</td>
+<td align="right">0.9508</td>
+<td align="right">0.9484</td>
+</tr>
+<tr class="even">
+<td align="left"><strong>mcmc.mode.2</strong></td>
+<td align="right">11.5</td>
+<td align="right">12.16</td>
+<td align="right">0.9524</td>
+</tr>
+<tr class="odd">
+<td align="left"><strong>mcmc.mode.3</strong></td>
+<td align="right">11.55</td>
+<td align="right">11.66</td>
+<td align="right">12.33</td>
+</tr>
+<tr class="even">
+<td align="left"><strong>mcmc.mode.4</strong></td>
+<td align="right">11.57</td>
+<td align="right">11.65</td>
+<td align="right">11.71</td>
+</tr>
+<tr class="odd">
+<td align="left"><strong>mcmc.mode.5</strong></td>
+<td align="right">11.55</td>
+<td align="right">11.62</td>
+<td align="right">11.65</td>
+</tr>
+<tr class="even">
+<td align="left"><strong>mcmc.mode.6</strong></td>
+<td align="right">11.51</td>
+<td align="right">11.63</td>
+<td align="right">11.61</td>
+</tr>
+<tr class="odd">
+<td align="left"><strong>mcmc.mode.7</strong></td>
+<td align="right">11.58</td>
+<td align="right">11.72</td>
+<td align="right">11.72</td>
+</tr>
+<tr class="even">
+<td align="left"><strong>mcmc.mode.8</strong></td>
+<td align="right">11.47</td>
+<td align="right">11.56</td>
+<td align="right">11.52</td>
+</tr>
+</tbody>
+</table>
+<table>
+<caption>Table continues below</caption>
+<col width="25%" />
+<col width="19%" />
+<col width="19%" />
+<col width="19%" />
+<thead>
+<tr class="header">
+<th align="left"> </th>
+<th align="right">mcmc.mode.4</th>
+<th align="right">mcmc.mode.5</th>
+<th align="right">mcmc.mode.6</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left"><strong>mcmc.mode.1</strong></td>
+<td align="right">0.9475</td>
+<td align="right">0.9488</td>
+<td align="right">0.9495</td>
+</tr>
+<tr class="even">
+<td align="left"><strong>mcmc.mode.2</strong></td>
+<td align="right">0.9488</td>
+<td align="right">0.9498</td>
+<td align="right">0.9542</td>
+</tr>
+<tr class="odd">
+<td align="left"><strong>mcmc.mode.3</strong></td>
+<td align="right">0.9473</td>
+<td align="right">0.9458</td>
+<td align="right">0.9464</td>
+</tr>
+<tr class="even">
+<td align="left"><strong>mcmc.mode.4</strong></td>
+<td align="right">12.4</td>
+<td align="right">0.9516</td>
+<td align="right">0.9522</td>
+</tr>
+<tr class="odd">
+<td align="left"><strong>mcmc.mode.5</strong></td>
+<td align="right">11.76</td>
+<td align="right">12.31</td>
+<td align="right">0.9463</td>
+</tr>
+<tr class="even">
+<td align="left"><strong>mcmc.mode.6</strong></td>
+<td align="right">11.72</td>
+<td align="right">11.6</td>
+<td align="right">12.21</td>
+</tr>
+<tr class="odd">
+<td align="left"><strong>mcmc.mode.7</strong></td>
+<td align="right">11.76</td>
+<td align="right">11.67</td>
+<td align="right">11.72</td>
+</tr>
+<tr class="even">
+<td align="left"><strong>mcmc.mode.8</strong></td>
+<td align="right">11.66</td>
+<td align="right">11.6</td>
+<td align="right">11.58</td>
+</tr>
+</tbody>
+</table>
+<table>
+<col width="25%" />
+<col width="19%" />
+<col width="19%" />
+<thead>
+<tr class="header">
+<th align="left"> </th>
+<th align="right">mcmc.mode.7</th>
+<th align="right">mcmc.mode.8</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left"><strong>mcmc.mode.1</strong></td>
+<td align="right">0.9496</td>
+<td align="right">0.9516</td>
+</tr>
+<tr class="even">
+<td align="left"><strong>mcmc.mode.2</strong></td>
+<td align="right">0.9562</td>
+<td align="right">0.9536</td>
+</tr>
+<tr class="odd">
+<td align="left"><strong>mcmc.mode.3</strong></td>
+<td align="right">0.9497</td>
+<td align="right">0.9439</td>
+</tr>
+<tr class="even">
+<td align="left"><strong>mcmc.mode.4</strong></td>
+<td align="right">0.95</td>
+<td align="right">0.9524</td>
+</tr>
+<tr class="odd">
+<td align="left"><strong>mcmc.mode.5</strong></td>
+<td align="right">0.9463</td>
+<td align="right">0.9511</td>
+</tr>
+<tr class="even">
+<td align="left"><strong>mcmc.mode.6</strong></td>
+<td align="right">0.9541</td>
+<td align="right">0.953</td>
+</tr>
+<tr class="odd">
+<td align="left"><strong>mcmc.mode.7</strong></td>
+<td align="right">12.36</td>
+<td align="right">0.9543</td>
+</tr>
+<tr class="even">
+<td align="left"><strong>mcmc.mode.8</strong></td>
+<td align="right">11.66</td>
+<td align="right">12.08</td>
+</tr>
+</tbody>
+</table>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">library</span>(ggplot2)
+<span class="kw">library</span>(GGally)
+<span class="kw">ggpairs</span>(mcmc_modes, <span class="dt">columns =</span> <span class="dv">3</span>:<span class="kw">ncol</span>(mcmc_modes))</code></pre>
+<div class="figure">
+<img src="figure/02b_plot_modes.png" />
+</div>
+<p>Ok, the models are all converging on the same point estimates. Why 0.95 correlation???</p>
+<h3 id="variance-of-blups">Variance of blups</h3>
+<pre class="sourceCode r"><code class="sourceCode r">mcmc_itts &lt;-<span class="st"> </span>mcmc_priors[!<span class="kw">is.na</span>(mcmc_priors$itt), ]
+<span class="kw">tapply</span>(mcmc_itts$docility, mcmc_itts$type, var)</code></pre>
+<pre><code>## mcmc.1 mcmc.2 mcmc.3 mcmc.4 mcmc.5 mcmc.6 mcmc.7 mcmc.8 
+##  19.20  19.30  19.16  19.12  19.20  19.13  19.26  19.14</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">tapply</span>(mcmc_itts$docility, mcmc_itts$type, range)</code></pre>
+<pre><code>## $mcmc.1
+## [1] -18.35  18.04
+## 
+## $mcmc.2
+## [1] -20.60  19.28
+## 
+## $mcmc.3
+## [1] -20.06  18.31
+## 
+## $mcmc.4
+## [1] -20.17  18.76
+## 
+## $mcmc.5
+## [1] -19.19  17.83
+## 
+## $mcmc.6
+## [1] -19.51  18.44
+## 
+## $mcmc.7
+## [1] -18.99  18.26
+## 
+## $mcmc.8
+## [1] -22.01  17.66</code></pre>
+<p>No variation in variances either...</p>
+</body>
+</html>

@@ -1,0 +1,1746 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="generator" content="pandoc">
+  <title></title>
+  <style type="text/css">code{white-space: pre;}</style>
+  <!--[if lt IE 9]>
+    <script src="http://html5shim.googlecode.com/svn/trunk/html5.js"></script>
+  <![endif]-->
+  <style type="text/css">
+table.sourceCode, tr.sourceCode, td.lineNumbers, td.sourceCode {
+  margin: 0; padding: 0; vertical-align: baseline; border: none; }
+table.sourceCode { width: 100%; line-height: 100%; }
+td.lineNumbers { text-align: right; padding-right: 4px; padding-left: 4px; color: #aaaaaa; border-right: 1px solid #aaaaaa; }
+td.sourceCode { padding-left: 5px; }
+code > span.kw { color: #007020; font-weight: bold; }
+code > span.dt { color: #902000; }
+code > span.dv { color: #40a070; }
+code > span.bn { color: #40a070; }
+code > span.fl { color: #40a070; }
+code > span.ch { color: #4070a0; }
+code > span.st { color: #4070a0; }
+code > span.co { color: #60a0b0; font-style: italic; }
+code > span.ot { color: #007020; }
+code > span.al { color: #ff0000; font-weight: bold; }
+code > span.fu { color: #06287e; }
+code > span.er { color: #ff0000; font-weight: bold; }
+body {max-width:600px; padding:10px;}
+  </style>
+</head>
+<body>
+<nav id="TOC">
+<ul>
+<li><a href="#temporal-selection-gradients">Temporal Selection Gradients</a><ul>
+<li><a href="#does-year-significantly-improve-models-of-selection">Does 'Year' significantly improve models of selection?</a></li>
+<li><a href="#accounting-for-random-effect-uncertainty">Accounting for random effect uncertainty</a><ul>
+<li><a href="#calculate-selection-gradients">Calculate selection gradients</a></li>
+<li><a href="#plots">Plots</a></li>
+<li><a href="#correlations">Correlations</a><ul>
+<li><a href="#aggression-and-activity">Aggression and Activity</a></li>
+<li><a href="#aggression-and-docility">Aggression and Docility</a></li>
+<li><a href="#activity-and-docility">Activity and Docility</a></li>
+</ul></li>
+<li><a href="#summary-stats">Summary Stats</a></li>
+</ul></li>
+<li><a href="#ignoring-random-effect-uncertainty">Ignoring random effect uncertainty</a><ul>
+<li><a href="#calculate-selection-gradients-1">Calculate selection gradients</a></li>
+<li><a href="#plot">Plot</a></li>
+<li><a href="#correlations-1">Correlations</a><ul>
+<li><a href="#aggression-and-activity-1">Aggression and Activity</a></li>
+<li><a href="#aggression-and-docility-1">Aggression and Docility</a></li>
+<li><a href="#activity-and-docility-1">Activity and Docility</a></li>
+</ul></li>
+<li><a href="#summary-statistics">Summary Statistics</a></li>
+</ul></li>
+<li><a href="#compare-analytical-frameworks">Compare Analytical Frameworks</a><ul>
+<li><a href="#table">Table</a></li>
+<li><a href="#aggression-plot">Aggression plot</a></li>
+<li><a href="#activity-plot">Activity Plot</a></li>
+<li><a href="#docility-plot">Docility Plot</a></li>
+</ul></li>
+</ul></li>
+</ul>
+</nav>
+
+
+
+<!--pandoc
+t: html
+default-image-extension: png
+template: templates/html.template
+toc-depth: 4
+toc:
+
+t: latex
+s:
+S:
+latex-engine: xelatex
+template: templates/latex.template
+default-image-extension: pdf
+toc-depth: 4
+toc:
+-->
+
+
+<h1 id="temporal-selection-gradients">Temporal Selection Gradients</h1>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">library</span>(MASS) <span class="co"># MASS clashes with dplyr... so always load first</span>
+<span class="kw">library</span>(pander) <span class="co"># pander clashes with dplyr... so always load first</span></code></pre>
+<pre><code>## 
+## Attaching package: &#39;pander&#39;
+## 
+## The following object is masked from &#39;package:knitr&#39;:
+## 
+##     pandoc</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">set.alignment</span>(<span class="st">&#39;right&#39;</span>, <span class="dt">row.names =</span> <span class="st">&#39;left&#39;</span>)
+<span class="kw">library</span>(MCMCglmm)</code></pre>
+<pre><code>## Loading required package: Matrix
+## Loading required package: coda
+## Loading required package: lattice
+## Loading required package: ape</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">library</span>(arm)</code></pre>
+<pre><code>## Loading required package: lme4
+## Loading required package: Rcpp
+## 
+## arm (Version 1.7-07, built: 2014-8-27)
+## 
+## Working directory is /home/ryan/projects/2014-female-selection
+## 
+## 
+## Attaching package: &#39;arm&#39;
+## 
+## The following object is masked from &#39;package:ape&#39;:
+## 
+##     balance
+## 
+## The following object is masked from &#39;package:coda&#39;:
+## 
+##     traceplot</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">library</span>(dplyr)</code></pre>
+<pre><code>## 
+## Attaching package: &#39;dplyr&#39;
+## 
+## The following object is masked from &#39;package:MASS&#39;:
+## 
+##     select
+## 
+## The following objects are masked from &#39;package:stats&#39;:
+## 
+##     filter, lag
+## 
+## The following objects are masked from &#39;package:base&#39;:
+## 
+##     intersect, setdiff, setequal, union</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">library</span>(ggplot2)
+<span class="kw">library</span>(grid)
+
+<span class="co"># Load Data</span>
+<span class="kw">load</span>(<span class="st">&quot;data/analyses_data/fit_raneff_data.RData&quot;</span>)
+fit_raneff_data$Year &lt;-<span class="st"> </span><span class="kw">as.character</span>(fit_raneff_data$Year)</code></pre>
+<h2 id="does-year-significantly-improve-models-of-selection">Does 'Year' significantly improve models of selection?</h2>
+<p>The significance of interaction terms between Year and the behavioral traits on fitness.</p>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="co"># GLMMs to test whether selection fluctuates across years.</span>
+<span class="kw">library</span>(lme4)
+<span class="co"># Models with interactions between year and the behavioral traits</span>
+fit_raneff_data_blup &lt;-<span class="st"> </span><span class="kw">filter</span>(fit_raneff_data, type ==<span class="st"> &quot;blup&quot;</span>)
+
+fit_raneff_data_blup %&gt;%
+<span class="st">  </span><span class="kw">group_by</span>(Grid, Year, <span class="dt">add =</span> <span class="ot">FALSE</span>) %&gt;%
+<span class="st">  </span><span class="kw">summarise</span>(<span class="kw">n</span>(), <span class="kw">var</span>(ars_all))</code></pre>
+<pre><code>## Source: local data frame [16 x 4]
+## Groups: Grid
+## 
+##    Grid Year n() var(ars_all)
+## 1    KL 2003   4       0.0000
+## 2    KL 2004   8       0.7857
+## 3    KL 2005  19       1.6550
+## 4    KL 2006  24       0.4275
+## 5    KL 2007  21       1.1000
+## 6    KL 2008  29       0.5369
+## 7    KL 2009  24       0.7373
+## 8    KL 2010  22       1.2121
+## 9    SU 2003  14       1.3022
+## 10   SU 2004  18       0.8007
+## 11   SU 2005  31       1.9828
+## 12   SU 2006  24       0.3025
+## 13   SU 2007  19       1.0526
+## 14   SU 2008  16       0.0000
+## 15   SU 2009  11       0.8727
+## 16   SU 2010  12       2.4470</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="co"># grid_years with no variation in fitness need to be removed</span>
+fit_raneff_data_blup &lt;-<span class="st"> </span><span class="kw">filter</span>(fit_raneff_data_blup,
+  !(grid_year %in%<span class="st"> </span><span class="kw">c</span>(<span class="st">&quot;KL2003&quot;</span>, <span class="st">&quot;SU2008&quot;</span>)))
+
+<span class="co"># Need to also remove Grid Years with very low sample sizes.</span>
+fit_raneff_data_blup %&gt;%
+<span class="st">  </span><span class="kw">group_by</span>(Grid, Year, <span class="dt">add =</span> <span class="ot">FALSE</span>) %&gt;%
+<span class="st">  </span><span class="kw">summarise</span>(<span class="kw">n</span>(), <span class="kw">var</span>(ars_all))</code></pre>
+<pre><code>## Source: local data frame [14 x 4]
+## Groups: Grid
+## 
+##    Grid Year n() var(ars_all)
+## 1    KL 2004   8       0.7857
+## 2    KL 2005  19       1.6550
+## 3    KL 2006  24       0.4275
+## 4    KL 2007  21       1.1000
+## 5    KL 2008  29       0.5369
+## 6    KL 2009  24       0.7373
+## 7    KL 2010  22       1.2121
+## 8    SU 2003  14       1.3022
+## 9    SU 2004  18       0.8007
+## 10   SU 2005  31       1.9828
+## 11   SU 2006  24       0.3025
+## 12   SU 2007  19       1.0526
+## 13   SU 2009  11       0.8727
+## 14   SU 2010  12       2.4470</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r">fit_raneff_data_blup &lt;-<span class="st"> </span><span class="kw">filter</span>(fit_raneff_data_blup,
+  !(grid_year %in%<span class="st"> </span><span class="kw">c</span>(<span class="st">&quot;KL2004&quot;</span>)))
+
+fit_raneff_data_blup$oID &lt;-<span class="st"> </span><span class="dv">1</span>:<span class="kw">nrow</span>(fit_raneff_data_blup)
+fit_raneff_data_blup &lt;-<span class="st"> </span><span class="kw">droplevels</span>(fit_raneff_data_blup)
+
+ars_year &lt;-<span class="st"> </span><span class="kw">glmer</span>(ars_all ~<span class="st"> </span>Year +<span class="st"> </span>Grid +<span class="st"> </span>activity_s +<span class="st"> </span>activity_s:Year +
+<span class="st">  </span>aggression_s +<span class="st"> </span>aggression_s:Year +<span class="st"> </span>docility_s +<span class="st"> </span>docility_s:Year +
+<span class="st">  </span>(<span class="dv">1</span>|ID) +<span class="st"> </span>(<span class="dv">1</span>|oID), <span class="dt">data =</span> fit_raneff_data_blup, <span class="dt">family =</span> poisson, 
+  <span class="dt">control=</span><span class="kw">glmerControl</span>(<span class="dt">optimizer=</span><span class="st">&quot;bobyqa&quot;</span>))</code></pre>
+<pre><code>## Warning: maxfun &lt; 10 * length(par)^2 is not recommended.</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">save</span>(ars_year, <span class="dt">file =</span> <span class="st">&quot;data/analyses_data/ars_year.RData&quot;</span>)</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">load</span>(<span class="st">&quot;data/analyses_data/ars_year.RData&quot;</span>)
+<span class="co"># Test fit of models. Does the addition of year:traits improve the fit?</span>
+<span class="kw">library</span>(car)</code></pre>
+<pre><code>## 
+## Attaching package: &#39;car&#39;
+## 
+## The following object is masked from &#39;package:arm&#39;:
+## 
+##     logit</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">library</span>(lme4)
+aod &lt;-<span class="st"> </span><span class="kw">Anova</span>(ars_year, <span class="dt">type =</span> <span class="dv">2</span>)
+aod &lt;-<span class="st"> </span><span class="kw">data.frame</span>(aod)
+aod$Chisq &lt;-<span class="st"> </span><span class="kw">round</span>(aod$Chisq ,<span class="dt">digits =</span> <span class="dv">2</span>)
+
+<span class="co"># Function to convert small p-values into &#39;P &lt; X&#39;</span>
+p.format &lt;-<span class="st"> </span>function(x){ 
+    out &lt;-<span class="st"> </span><span class="kw">signif</span>(x, <span class="dt">digits =</span> <span class="dv">2</span>)
+  out[x &lt;<span class="st"> </span><span class="fl">0.005</span>]  &lt;-<span class="st"> &quot;&lt; 0.005&quot;</span>
+    out[x &lt;<span class="st"> </span><span class="fl">0.001</span>]  &lt;-<span class="st"> &quot;&lt; 0.001&quot;</span>
+    out[x &lt;<span class="st"> </span><span class="fl">0.0001</span>] &lt;-<span class="st"> &quot;&lt; 0.0001&quot;</span>
+    <span class="kw">return</span>(out)
+}
+<span class="co"># Format p values</span>
+aod[ ,<span class="dv">3</span>] &lt;-<span class="st"> </span><span class="kw">p.format</span>(aod[ ,<span class="dv">3</span>])
+<span class="kw">row.names</span>(aod) &lt;-<span class="st"> </span><span class="kw">c</span>(<span class="st">&quot;Year&quot;</span>, <span class="st">&quot;Grid&quot;</span>, <span class="st">&quot;Activity&quot;</span>, <span class="st">&quot;Aggression&quot;</span>, <span class="st">&quot;Docility&quot;</span>,
+  <span class="st">&quot;Year x Activity&quot;</span>, <span class="st">&quot;Year x Aggression&quot;</span>, <span class="st">&quot;Year x Docility&quot;</span>)
+<span class="kw">pandoc.table</span>(aod, <span class="dt">caption =</span> 
+  <span class="st">&quot;The effect of year on selection for female behavioral traits through annual</span>
+<span class="st">reproductive success. Significance was calculated with Wald chisq tests from</span>
+<span class="st">a type II analysis of deviance. GLMMs were fitted with identity as a random</span>
+<span class="st">effect and assumed a Poisson error distribution.&quot;</span>)</code></pre>
+<table>
+<caption>The effect of year on selection for female behavioral traits through annual reproductive success. Significance was calculated with Wald chisq tests from a type II analysis of deviance. GLMMs were fitted with identity as a random effect and assumed a Poisson error distribution.</caption>
+<col width="33%" />
+<col width="11%" />
+<col width="6%" />
+<col width="16%" />
+<thead>
+<tr class="header">
+<th align="left"> </th>
+<th align="right">Chisq</th>
+<th align="right">Df</th>
+<th align="right">Pr..Chisq.</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left"><strong>Year</strong></td>
+<td align="right">38.1</td>
+<td align="right">7</td>
+<td align="right">&lt; 0.0001</td>
+</tr>
+<tr class="even">
+<td align="left"><strong>Grid</strong></td>
+<td align="right">1.07</td>
+<td align="right">1</td>
+<td align="right">0.3</td>
+</tr>
+<tr class="odd">
+<td align="left"><strong>Activity</strong></td>
+<td align="right">0.34</td>
+<td align="right">1</td>
+<td align="right">0.56</td>
+</tr>
+<tr class="even">
+<td align="left"><strong>Aggression</strong></td>
+<td align="right">0.34</td>
+<td align="right">1</td>
+<td align="right">0.56</td>
+</tr>
+<tr class="odd">
+<td align="left"><strong>Docility</strong></td>
+<td align="right">0.98</td>
+<td align="right">1</td>
+<td align="right">0.32</td>
+</tr>
+<tr class="even">
+<td align="left"><strong>Year x Activity</strong></td>
+<td align="right">22.92</td>
+<td align="right">7</td>
+<td align="right">&lt; 0.005</td>
+</tr>
+<tr class="odd">
+<td align="left"><strong>Year x Aggression</strong></td>
+<td align="right">22.84</td>
+<td align="right">7</td>
+<td align="right">&lt; 0.005</td>
+</tr>
+<tr class="even">
+<td align="left"><strong>Year x Docility</strong></td>
+<td align="right">10.33</td>
+<td align="right">7</td>
+<td align="right">0.17</td>
+</tr>
+</tbody>
+</table>
+<h2 id="accounting-for-random-effect-uncertainty">Accounting for random effect uncertainty</h2>
+<h3 id="calculate-selection-gradients">Calculate selection gradients</h3>
+<p>Calculate selection coefficients for each of the 1000 samples of the posterior distribution of random effects.</p>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="co"># Function to get posterior distribution of selection gradients</span>
+x &lt;-<span class="st"> </span>fit_raneff_data %&gt;%<span class="st"> </span><span class="kw">filter</span>(type ==<span class="st"> &quot;raneff&quot;</span> &amp;<span class="st"> </span>Year ==<span class="st"> </span><span class="dv">2003</span> &amp;<span class="st"> </span>itt ==<span class="st"> </span><span class="dv">1</span>)
+seCoefMCMC &lt;-<span class="st"> </span>function(x){
+  mod &lt;-<span class="st"> </span><span class="kw">lm</span>(rel_ars ~<span class="st"> </span>aggression +<span class="st"> </span>activity +<span class="st"> </span>docility, <span class="dt">data =</span> x)
+  mod_sd &lt;-<span class="st">  </span><span class="kw">lm</span>(rel_ars ~<span class="st"> </span>aggression_sy +<span class="st"> </span>activity_sy +<span class="st"> </span>docility_sy, <span class="dt">data =</span> x)
+  res &lt;-<span class="st"> </span><span class="kw">c</span>(<span class="kw">as.list</span>(<span class="kw">coef</span>(mod)[-<span class="dv">1</span>]), <span class="kw">as.list</span>(<span class="kw">coef</span>(mod_sd)[-<span class="dv">1</span>]))
+  res$Year &lt;-<span class="st"> </span>x$Year[<span class="dv">1</span>]
+  res$itt &lt;-<span class="st"> </span>x$itt[<span class="dv">1</span>]
+  <span class="kw">return</span>(<span class="kw">data.frame</span>(res, <span class="dt">stringsAsFactors =</span> <span class="ot">FALSE</span>))
+}
+
+start_time &lt;-<span class="st"> </span><span class="kw">Sys.time</span>()
+sel_grads_mcmc_post &lt;-<span class="st"> </span>fit_raneff_data %&gt;%
+<span class="st">  </span><span class="kw">filter</span>(type ==<span class="st"> &quot;raneff&quot;</span>) %&gt;%
+<span class="st">  </span><span class="kw">group_by</span>(itt, Year, <span class="dt">add =</span> <span class="ot">FALSE</span>) %&gt;%
+<span class="st">  </span><span class="kw">do</span>(<span class="kw">seCoefMCMC</span>(.))
+<span class="kw">print</span>(<span class="kw">paste</span>(<span class="st">&quot;Approx. run time: &quot;</span>, <span class="kw">format</span>(<span class="kw">Sys.time</span>() -<span class="st"> </span>start_time)))</code></pre>
+<pre><code>## [1] &quot;Approx. run time:  57.5 secs&quot;</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">save</span>(sel_grads_mcmc_post,
+  <span class="dt">file =</span> <span class="st">&quot;data/analyses_data/sel_grads_mcmc_post.RData&quot;</span>)</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">load</span>(<span class="st">&quot;data/analyses_data/sel_grads_mcmc_post.RData&quot;</span>)
+x &lt;-<span class="st"> </span>sel_grads_mcmc_post %&gt;%<span class="st"> </span><span class="kw">filter</span>(Year ==<span class="st"> &quot;2003&quot;</span>)
+getCred &lt;-<span class="st"> </span>function(x, <span class="dt">sig =</span> <span class="fl">0.05</span>){
+  <span class="kw">require</span>(MCMCglmm)
+  mcmc_data &lt;-<span class="st"> </span>x %&gt;%<span class="st"> </span><span class="kw">ungroup</span>() %&gt;%<span class="st"> </span><span class="kw">select</span>(aggression, activity, docility, aggression_sy, activity_sy, docility_sy) %&gt;%<span class="st"> </span><span class="kw">mcmc</span>(.)
+  pm  &lt;-<span class="st"> </span><span class="kw">posterior.mode</span>(mcmc_data)
+  int &lt;-<span class="st"> </span><span class="kw">HPDinterval</span>(mcmc_data, <span class="dt">prob =</span> <span class="dv">1</span> -<span class="st"> </span>sig)
+  <span class="kw">tbl_df</span>(<span class="kw">data.frame</span>(
+    <span class="dt">Year      =</span> x$Year[<span class="dv">1</span>],
+    <span class="dt">variable  =</span> <span class="kw">c</span>(<span class="st">&quot;Aggression&quot;</span>, <span class="st">&quot;Activity&quot;</span>, <span class="st">&quot;Docility&quot;</span>, <span class="st">&quot;Aggression&quot;</span>, 
+    <span class="st">&quot;Activity&quot;</span>, <span class="st">&quot;Docility&quot;</span>),
+     <span class="dt">standardization =</span> <span class="kw">c</span>(<span class="st">&quot;None&quot;</span>, <span class="st">&quot;None&quot;</span>, <span class="st">&quot;None&quot;</span>, <span class="st">&quot;SD&quot;</span>, <span class="st">&quot;SD&quot;</span>, <span class="st">&quot;SD&quot;</span>),
+    <span class="dt">post_mode =</span> pm,
+    <span class="dt">lower     =</span> int[ ,<span class="st">&quot;lower&quot;</span>],
+    <span class="dt">upper     =</span> int[ ,<span class="st">&quot;upper&quot;</span>],
+    <span class="dt">stringsAsFactors =</span> <span class="ot">FALSE</span>
+    ))
+}
+
+<span class="kw">getCred</span>(sel_grads_mcmc_post %&gt;%<span class="st"> </span><span class="kw">filter</span>(Year ==<span class="st"> &quot;2004&quot;</span>))</code></pre>
+<pre><code>## Source: local data frame [6 x 6]
+## 
+##               Year   variable standardization post_mode    lower   upper
+## aggression    2004 Aggression            None  -0.30391 -0.76486 0.14086
+## activity      2004   Activity            None   0.03346 -0.31909 0.66905
+## docility      2004   Docility            None   0.05488 -0.06433 0.11222
+## aggression_sy 2004 Aggression              SD  -0.24452 -0.80615 0.07615
+## activity_sy   2004   Activity              SD   0.01654 -0.35851 0.62341
+## docility_sy   2004   Docility              SD   0.20932 -0.25839 0.51523</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r">sel_grads_mcmc &lt;-<span class="st"> </span>sel_grads_mcmc_post %&gt;%
+<span class="st">  </span><span class="kw">group_by</span>(Year, <span class="dt">add =</span> <span class="ot">FALSE</span>) %&gt;%
+<span class="st">  </span><span class="kw">do</span>(<span class="kw">getCred</span>(<span class="dt">x =</span> ., <span class="dt">sig =</span> <span class="fl">0.05</span>))
+
+sel_grads_mcmc$upper_sig_star &lt;-<span class="st"> &quot;&quot;</span>
+sel_grads_mcmc$lower_sig_star &lt;-<span class="st"> &quot;&quot;</span>
+sel_grads_mcmc$upper_sig_star[sel_grads_mcmc$post_mode &gt;<span class="st"> </span><span class="dv">0</span> &amp;
+<span class="st">  </span>sel_grads_mcmc$lower &gt;<span class="st"> </span><span class="dv">0</span>] &lt;-<span class="st"> &quot;*&quot;</span>
+sel_grads_mcmc$lower_sig_star[sel_grads_mcmc$post_mode &lt;<span class="st"> </span><span class="dv">0</span> &amp;
+<span class="st">  </span>sel_grads_mcmc$upper &lt;<span class="st"> </span><span class="dv">0</span>] &lt;-<span class="st"> &quot;*&quot;</span>
+
+<span class="kw">save</span>(sel_grads_mcmc, sel_grads_mcmc_post, getCred,
+  <span class="dt">file =</span> <span class="st">&quot;data/analyses_data/sel_grads_mcmc.RData&quot;</span>)</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">load</span>(<span class="st">&quot;data/analyses_data/sel_grads_mcmc.RData&quot;</span>)
+
+N &lt;-<span class="st"> </span>fit_raneff_data %&gt;%
+<span class="st">  </span><span class="kw">filter</span>(type ==<span class="st"> &quot;blup&quot;</span>) %&gt;%
+<span class="st">  </span><span class="kw">group_by</span>(Year, <span class="dt">add =</span> <span class="ot">FALSE</span>) %&gt;%
+<span class="st">  </span><span class="kw">summarise</span>(<span class="kw">n</span>(), <span class="dt">doc_mean =</span> <span class="kw">mean</span>(docility, <span class="dt">na.rm =</span> <span class="ot">TRUE</span>))
+
+<span class="co"># Format for table</span>
+sgt &lt;-<span class="st"> </span>sel_grads_mcmc
+sgt$sig_star &lt;-<span class="st"> &quot;&quot;</span>
+sgt$sig_star[sgt$post_mode &gt;<span class="st"> </span><span class="dv">0</span> &amp;<span class="st"> </span>sgt$lower &gt;<span class="st"> </span><span class="dv">0</span>] &lt;-<span class="st"> &quot;*&quot;</span>
+sgt$sig_star[sgt$post_mode &lt;<span class="st"> </span><span class="dv">0</span> &amp;<span class="st"> </span>sgt$upper &lt;<span class="st"> </span><span class="dv">0</span>] &lt;-<span class="st"> &quot;*&quot;</span>
+sgt$post_mode &lt;-<span class="st"> </span><span class="kw">format</span>(<span class="kw">round</span>(sgt$post_mode, <span class="dt">digits =</span> <span class="dv">2</span>), <span class="dt">digits =</span> <span class="dv">1</span>,
+  <span class="dt">nsmall =</span> <span class="dv">2</span>)
+sgt$lower     &lt;-<span class="st"> </span><span class="kw">format</span>(<span class="kw">round</span>(sgt$lower,     <span class="dt">digits =</span> <span class="dv">2</span>), <span class="dt">digits =</span> <span class="dv">1</span>,
+  <span class="dt">nsmall =</span> <span class="dv">2</span>)
+sgt$upper     &lt;-<span class="st"> </span><span class="kw">format</span>(<span class="kw">round</span>(sgt$upper,     <span class="dt">digits =</span> <span class="dv">2</span>), <span class="dt">digits =</span> <span class="dv">1</span>,
+  <span class="dt">nsmall =</span> <span class="dv">2</span>)
+sgt$coef      &lt;-<span class="st"> </span><span class="kw">paste</span>(sgt$post_mode, <span class="st">&quot; (&quot;</span>, sgt$lower, <span class="st">&quot; to &quot;</span>, sgt$upper,<span class="st">&quot;)&quot;</span>,
+  sgt$sig_star, <span class="dt">sep =</span> <span class="st">&#39;&#39;</span>)
+
+sgt_agg &lt;-<span class="st"> </span><span class="kw">filter</span>(sgt, variable ==<span class="st"> &quot;Aggression&quot;</span>, standardization ==<span class="st"> &quot;None&quot;</span>)
+sgt_act &lt;-<span class="st"> </span><span class="kw">filter</span>(sgt, variable ==<span class="st"> &quot;Activity&quot;</span>,   standardization ==<span class="st"> &quot;None&quot;</span>)
+sgt_doc &lt;-<span class="st"> </span><span class="kw">filter</span>(sgt, variable ==<span class="st"> &quot;Docility&quot;</span>,   standardization ==<span class="st"> &quot;None&quot;</span>)
+
+sgt_agg_sd &lt;-<span class="st"> </span><span class="kw">filter</span>(sgt, variable ==<span class="st"> &quot;Aggression&quot;</span>, standardization ==<span class="st"> &quot;SD&quot;</span>)
+sgt_act_sd &lt;-<span class="st"> </span><span class="kw">filter</span>(sgt, variable ==<span class="st"> &quot;Activity&quot;</span>,   standardization ==<span class="st"> &quot;SD&quot;</span>)
+sgt_doc_sd &lt;-<span class="st"> </span><span class="kw">filter</span>(sgt, variable ==<span class="st"> &quot;Docility&quot;</span>,   standardization ==<span class="st"> &quot;SD&quot;</span>)
+
+
+doc_post_mode &lt;-<span class="st"> </span>sel_grads_mcmc %&gt;%<span class="st"> </span><span class="kw">filter</span>(standardization ==<span class="st"> &quot;None&quot;</span> &amp;<span class="st"> </span>variable ==<span class="st"> &quot;Docility&quot;</span>) 
+doc_post_mode$post_mode_m &lt;-<span class="st"> </span>doc_post_mode$post_mode *<span class="st"> </span>N$doc_mean
+doc_post_mode$post_mode_m &lt;-<span class="st"> </span><span class="kw">format</span>(<span class="kw">round</span>(doc_post_mode$post_mode_m, <span class="dt">digits =</span> <span class="dv">2</span>), <span class="dt">digits =</span> <span class="dv">1</span>, <span class="dt">nsmall =</span> <span class="dv">2</span>)
+
+<span class="kw">pandoc.table</span>(
+  <span class="kw">data.frame</span>(<span class="dt">Year =</span> N$Year, <span class="dt">N =</span> N[ ,<span class="dv">2</span>], <span class="dt">Aggression =</span> sgt_agg$coef,
+    <span class="dt">Acitivity =</span> sgt_act$coef, <span class="dt">Docility =</span> sgt_doc$coef
+  ),
+  <span class="dt">caption =</span> <span class="st">&quot;Non-standardized selection gradients (accounting for behavioural uncertainty).&quot;</span>
+  )</code></pre>
+<table>
+<caption>Non-standardized selection gradients (accounting for behavioural uncertainty). (continued below)</caption>
+<col width="9%" />
+<col width="5%" />
+<col width="30%" />
+<col width="31%" />
+<thead>
+<tr class="header">
+<th align="right">Year</th>
+<th align="right">N</th>
+<th align="right">Aggression</th>
+<th align="right">Acitivity</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="right">2003</td>
+<td align="right">18</td>
+<td align="right">0.03 (-0.92 to 0.84)</td>
+<td align="right">0.45 (-0.17 to 1.32)</td>
+</tr>
+<tr class="even">
+<td align="right">2004</td>
+<td align="right">26</td>
+<td align="right">-0.30 (-0.76 to 0.14)</td>
+<td align="right">0.03 (-0.32 to 0.67)</td>
+</tr>
+<tr class="odd">
+<td align="right">2005</td>
+<td align="right">50</td>
+<td align="right">-0.18 (-0.45 to 0.10)</td>
+<td align="right">0.13 (-0.16 to 0.40)</td>
+</tr>
+<tr class="even">
+<td align="right">2006</td>
+<td align="right">48</td>
+<td align="right">0.39 (-0.04 to 0.79)</td>
+<td align="right">0.08 (-0.39 to 0.45)</td>
+</tr>
+<tr class="odd">
+<td align="right">2007</td>
+<td align="right">40</td>
+<td align="right">0.00 (-0.35 to 0.36)</td>
+<td align="right">0.11 (-0.22 to 0.42)</td>
+</tr>
+<tr class="even">
+<td align="right">2008</td>
+<td align="right">45</td>
+<td align="right">0.44 (-0.12 to 0.95)</td>
+<td align="right">-0.26 (-0.75 to 0.40)</td>
+</tr>
+<tr class="odd">
+<td align="right">2009</td>
+<td align="right">35</td>
+<td align="right">0.12 (-0.33 to 0.58)</td>
+<td align="right">-0.58 (-0.93 to -0.02)*</td>
+</tr>
+<tr class="even">
+<td align="right">2010</td>
+<td align="right">34</td>
+<td align="right">0.06 (-0.30 to 0.35)</td>
+<td align="right">0.03 (-0.26 to 0.30)</td>
+</tr>
+</tbody>
+</table>
+<table>
+<col width="31%" />
+<thead>
+<tr class="header">
+<th align="right">Docility</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="right">-0.08 (-0.26 to 0.06)</td>
+</tr>
+<tr class="even">
+<td align="right">0.05 (-0.06 to 0.11)</td>
+</tr>
+<tr class="odd">
+<td align="right">0.03 (-0.02 to 0.07)</td>
+</tr>
+<tr class="even">
+<td align="right">-0.04 (-0.12 to 0.00)</td>
+</tr>
+<tr class="odd">
+<td align="right">0.00 (-0.05 to 0.05)</td>
+</tr>
+<tr class="even">
+<td align="right">-0.02 (-0.08 to 0.05)</td>
+</tr>
+<tr class="odd">
+<td align="right">-0.06 (-0.11 to -0.01)*</td>
+</tr>
+<tr class="even">
+<td align="right">-0.05 (-0.08 to -0.02)*</td>
+</tr>
+</tbody>
+</table>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">pandoc.table</span>(
+  <span class="kw">data.frame</span>(<span class="dt">Year =</span> N$Year, <span class="dt">N =</span> N[ ,<span class="dv">2</span>], <span class="dt">Aggression =</span> sgt_agg_sd$coef,
+    <span class="dt">Acitivity =</span> sgt_act_sd$coef, <span class="dt">Docility =</span> sgt_doc_sd$coef
+  ),
+  <span class="dt">caption =</span> <span class="st">&quot;SD-standardized selection gradients (accounting for behavioural uncertainty).&quot;</span>
+  )</code></pre>
+<table>
+<caption>SD-standardized selection gradients (accounting for behavioural uncertainty). (continued below)</caption>
+<col width="9%" />
+<col width="5%" />
+<col width="30%" />
+<col width="30%" />
+<thead>
+<tr class="header">
+<th align="center">Year</th>
+<th align="center">N</th>
+<th align="center">Aggression</th>
+<th align="center">Acitivity</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="center">2003</td>
+<td align="center">18</td>
+<td align="center">0.03 (-0.76 to 0.71)</td>
+<td align="center">0.79 (-0.24 to 1.38)</td>
+</tr>
+<tr class="even">
+<td align="center">2004</td>
+<td align="center">26</td>
+<td align="center">-0.24 (-0.81 to 0.08)</td>
+<td align="center">0.02 (-0.36 to 0.62)</td>
+</tr>
+<tr class="odd">
+<td align="center">2005</td>
+<td align="center">50</td>
+<td align="center">-0.19 (-0.47 to 0.07)</td>
+<td align="center">0.16 (-0.12 to 0.41)</td>
+</tr>
+<tr class="even">
+<td align="center">2006</td>
+<td align="center">48</td>
+<td align="center">0.39 (-0.04 to 0.72)</td>
+<td align="center">0.08 (-0.37 to 0.44)</td>
+</tr>
+<tr class="odd">
+<td align="center">2007</td>
+<td align="center">40</td>
+<td align="center">-0.01 (-0.32 to 0.34)</td>
+<td align="center">0.09 (-0.23 to 0.42)</td>
+</tr>
+<tr class="even">
+<td align="center">2008</td>
+<td align="center">45</td>
+<td align="center">0.46 (-0.06 to 0.95)</td>
+<td align="center">-0.18 (-0.72 to 0.40)</td>
+</tr>
+<tr class="odd">
+<td align="center">2009</td>
+<td align="center">35</td>
+<td align="center">0.16 (-0.29 to 0.59)</td>
+<td align="center">-0.55 (-0.92 to 0.01)</td>
+</tr>
+<tr class="even">
+<td align="center">2010</td>
+<td align="center">34</td>
+<td align="center">-0.04 (-0.27 to 0.32)</td>
+<td align="center">0.04 (-0.25 to 0.30)</td>
+</tr>
+</tbody>
+</table>
+<table>
+<col width="31%" />
+<thead>
+<tr class="header">
+<th align="center">Docility</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="center">-0.38 (-1.12 to 0.31)</td>
+</tr>
+<tr class="even">
+<td align="center">0.21 (-0.26 to 0.52)</td>
+</tr>
+<tr class="odd">
+<td align="center">0.10 (-0.09 to 0.34)</td>
+</tr>
+<tr class="even">
+<td align="center">-0.25 (-0.58 to -0.03)*</td>
+</tr>
+<tr class="odd">
+<td align="center">0.01 (-0.23 to 0.23)</td>
+</tr>
+<tr class="even">
+<td align="center">-0.08 (-0.37 to 0.25)</td>
+</tr>
+<tr class="odd">
+<td align="center">-0.30 (-0.53 to -0.05)*</td>
+</tr>
+<tr class="even">
+<td align="center">-0.23 (-0.35 to -0.10)*</td>
+</tr>
+</tbody>
+</table>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">pandoc.table</span>(
+  <span class="kw">data.frame</span>(<span class="dt">Year =</span> N$Year, <span class="dt">N =</span> N[ ,<span class="dv">2</span>], <span class="dt">mean_trait =</span> N$doc_mean, <span class="dt">Docility =</span> doc_post_mode$post_mode_m
+  ),
+  <span class="dt">caption =</span> <span class="st">&quot;Mean standardized selection gradients (accounting for behavioural uncertainty).&quot;</span>
+  )</code></pre>
+<table>
+<caption>Mean standardized selection gradients (accounting for behavioural uncertainty).</caption>
+<col width="9%" />
+<col width="5%" />
+<col width="18%" />
+<col width="13%" />
+<thead>
+<tr class="header">
+<th align="center">Year</th>
+<th align="center">N</th>
+<th align="center">mean_trait</th>
+<th align="center">Docility</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="center">2003</td>
+<td align="center">18</td>
+<td align="center">17.29</td>
+<td align="center">-1.46</td>
+</tr>
+<tr class="even">
+<td align="center">2004</td>
+<td align="center">26</td>
+<td align="center">17.31</td>
+<td align="center">0.95</td>
+</tr>
+<tr class="odd">
+<td align="center">2005</td>
+<td align="center">50</td>
+<td align="center">17.25</td>
+<td align="center">0.55</td>
+</tr>
+<tr class="even">
+<td align="center">2006</td>
+<td align="center">48</td>
+<td align="center">16.77</td>
+<td align="center">-0.70</td>
+</tr>
+<tr class="odd">
+<td align="center">2007</td>
+<td align="center">40</td>
+<td align="center">16.77</td>
+<td align="center">0.05</td>
+</tr>
+<tr class="even">
+<td align="center">2008</td>
+<td align="center">45</td>
+<td align="center">16.9</td>
+<td align="center">-0.27</td>
+</tr>
+<tr class="odd">
+<td align="center">2009</td>
+<td align="center">35</td>
+<td align="center">16.79</td>
+<td align="center">-0.97</td>
+</tr>
+<tr class="even">
+<td align="center">2010</td>
+<td align="center">34</td>
+<td align="center">17.19</td>
+<td align="center">-0.87</td>
+</tr>
+</tbody>
+</table>
+<h3 id="plots">Plots</h3>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">load</span>(<span class="st">&quot;data/analyses_data/sel_grads_mcmc_post.RData&quot;</span>)
+<span class="kw">library</span>(ggplot2)
+<span class="kw">library</span>(dplyr)
+
+sel_grads_mcmc &lt;-<span class="st"> </span>sel_grads_mcmc_post %&gt;%
+<span class="st">  </span><span class="kw">group_by</span>(Year, <span class="dt">add =</span> <span class="ot">FALSE</span>) %&gt;%<span class="st"> </span><span class="kw">do</span>(<span class="kw">getCred</span>(<span class="dt">x =</span> ., <span class="dt">sig =</span> <span class="fl">0.05</span>))
+
+sel_grads_mcmc$upper_sig_star &lt;-<span class="st"> &quot;&quot;</span>
+sel_grads_mcmc$lower_sig_star &lt;-<span class="st"> &quot;&quot;</span>
+sel_grads_mcmc$upper_sig_star[sel_grads_mcmc$post_mode &gt;<span class="st"> </span><span class="dv">0</span> &amp;
+<span class="st">  </span>sel_grads_mcmc$lower &gt;<span class="st"> </span><span class="dv">0</span>] &lt;-<span class="st"> &quot;*&quot;</span>
+sel_grads_mcmc$lower_sig_star[sel_grads_mcmc$post_mode &lt;<span class="st"> </span><span class="dv">0</span> &amp;
+<span class="st">  </span>sel_grads_mcmc$upper &lt;<span class="st"> </span><span class="dv">0</span>] &lt;-<span class="st"> &quot;*&quot;</span>
+
+p &lt;-<span class="st"> </span><span class="kw">ggplot</span>(<span class="dt">data =</span> <span class="kw">filter</span>(sel_grads_mcmc, standardization ==<span class="st"> &quot;SD&quot;</span>),
+  <span class="kw">aes</span>(<span class="dt">x =</span> Year, <span class="dt">y =</span> post_mode, <span class="dt">group =</span> variable))
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">geom_hline</span>(<span class="dt">yintercept =</span> <span class="dv">0</span>, <span class="dt">size =</span> <span class="fl">0.25</span>) <span class="co"># Line at y = 0</span>
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">geom_errorbar</span>(<span class="kw">aes</span>(<span class="dt">ymax =</span> upper, <span class="dt">ymin =</span> lower),
+  <span class="dt">position =</span> <span class="kw">position_dodge</span>(<span class="dt">width =</span> <span class="fl">0.5</span>), <span class="dt">width =</span> <span class="fl">0.4</span>, <span class="dt">size =</span> <span class="fl">0.4</span>)
+<span class="co"># Houle data percentiles</span>
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">geom_hline</span>(<span class="dt">yintercept =</span> <span class="kw">c</span>(<span class="fl">0.2975</span>, -<span class="fl">0.2975</span>), <span class="dt">linetype =</span> <span class="dv">2</span>, <span class="dt">size =</span> <span class="fl">0.4</span>)
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">geom_point</span>(<span class="kw">aes</span>(<span class="dt">shape =</span> variable, <span class="dt">fill =</span> variable),
+  <span class="dt">position =</span> <span class="kw">position_dodge</span>(<span class="dt">width =</span> <span class="fl">0.5</span>), <span class="dt">size =</span> <span class="dv">3</span>)
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">scale_shape_manual</span>(<span class="dt">name =</span> <span class="st">&quot;B&quot;</span>, <span class="dt">values =</span> <span class="kw">c</span>(<span class="dv">24</span>, <span class="dv">21</span>, <span class="dv">22</span>))
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">scale_fill_manual</span>(<span class="dt">name =</span> <span class="st">&quot;B&quot;</span>, <span class="dt">values =</span> <span class="kw">c</span>(<span class="st">&quot;white&quot;</span>, <span class="st">&quot;black&quot;</span>, <span class="st">&quot;white&quot;</span>))
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">scale_color_manual</span>(<span class="dt">name =</span> <span class="st">&quot;B&quot;</span>, <span class="dt">values =</span> <span class="kw">c</span>(<span class="st">&quot;black&quot;</span>, <span class="st">&quot;black&quot;</span>, <span class="st">&quot;black&quot;</span>))
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">xlab</span>(<span class="st">&quot;Year&quot;</span>) 
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">ylab</span>(<span class="st">&quot;Posterior Mode ± 0.95 Credible Interval&quot;</span>)
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">theme_bw</span>(<span class="dt">base_size =</span> <span class="dv">10</span>)
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">theme</span>(<span class="dt">legend.position =</span> <span class="kw">c</span>(<span class="fl">0.92</span>, <span class="fl">0.86</span>),
+  <span class="dt">legend.background =</span> <span class="kw">element_blank</span>(), <span class="dt">legend.key.size =</span> <span class="kw">unit</span>(<span class="fl">0.4</span>, <span class="st">&quot;cm&quot;</span>))
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">theme</span>(<span class="dt">legend.title =</span> <span class="kw">element_text</span>(<span class="dt">family =</span> <span class="st">&quot;Helvetica&quot;</span>,
+                                 <span class="dt">face =</span> <span class="st">&quot;plain&quot;</span>, <span class="dt">size =</span> <span class="dv">18</span>))
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">theme</span>(<span class="dt">legend.key =</span> <span class="kw">element_blank</span>())
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">theme</span>(<span class="dt">strip.background =</span> <span class="kw">element_blank</span>())
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">theme</span>(<span class="dt">panel.grid.minor =</span> <span class="kw">element_blank</span>(),
+  <span class="dt">panel.grid.major =</span> <span class="kw">element_blank</span>())
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">theme</span>(<span class="dt">panel.border =</span> <span class="kw">element_blank</span>())
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">theme</span>(<span class="dt">axis.line =</span> <span class="kw">element_line</span>(<span class="dt">color =</span> <span class="st">&quot;black&quot;</span>))
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">geom_text</span>(<span class="kw">aes</span>(<span class="dt">x =</span> Year, <span class="dt">y =</span> upper, <span class="dt">group =</span> variable,
+  <span class="dt">label =</span> upper_sig_star), <span class="dt">vjust =</span> -<span class="fl">0.3</span>,
+  <span class="dt">position =</span> <span class="kw">position_dodge</span>(<span class="dt">width =</span> <span class="fl">0.5</span>), <span class="dt">size =</span> <span class="dv">5</span>)
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">geom_text</span>(<span class="kw">aes</span>(<span class="dt">x =</span> Year, <span class="dt">y =</span> lower, <span class="dt">group =</span> variable,
+  <span class="dt">label =</span> lower_sig_star), <span class="dt">vjust =</span> <span class="fl">1.3</span>,
+  <span class="dt">position =</span> <span class="kw">position_dodge</span>(<span class="dt">width =</span> <span class="fl">0.5</span>), <span class="dt">size =</span> <span class="dv">5</span>)
+p_sel_grad_MCMC &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">ylim</span>(<span class="kw">c</span>(-<span class="fl">1.1</span>,<span class="fl">1.4</span>))
+
+<span class="kw">pdf</span>(<span class="dt">file =</span> <span class="st">&quot;figure/04_sg_mcmc_SD_print.pdf&quot;</span>, <span class="dt">width =</span> <span class="fl">4.33</span>, <span class="dt">height =</span> <span class="dv">3</span>)
+p_sel_grad_MCMC</code></pre>
+<pre><code>## ymax not defined: adjusting position using y instead
+## ymax not defined: adjusting position using y instead
+## ymax not defined: adjusting position using y instead</code></pre>
+<pre><code>## Warning: Removed 4 rows containing missing values (geom_path).
+## Warning: Removed 1 rows containing missing values (geom_text).</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">dev.off</span>()</code></pre>
+<pre><code>## pdf 
+##   2</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r">p_sel_grad_MCMC</code></pre>
+<pre><code>## ymax not defined: adjusting position using y instead
+## ymax not defined: adjusting position using y instead
+## ymax not defined: adjusting position using y instead</code></pre>
+<pre><code>## Warning: Removed 4 rows containing missing values (geom_path).
+## Warning: Removed 1 rows containing missing values (geom_text).</code></pre>
+<div class="figure">
+<img src="figure/04_sg_mcmc_SD.png" alt="SD Standardized Selection Gradients" /><p class="caption">SD Standardized Selection Gradients</p>
+</div>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">load</span>(<span class="st">&quot;data/analyses_data/sel_grads_mcmc_post.RData&quot;</span>)
+<span class="kw">library</span>(ggplot2)
+<span class="kw">library</span>(dplyr)
+
+sel_grads_mcmc &lt;-<span class="st"> </span>sel_grads_mcmc_post %&gt;%
+<span class="st">  </span><span class="kw">group_by</span>(Year, <span class="dt">add =</span> <span class="ot">FALSE</span>) %&gt;%<span class="st"> </span><span class="kw">do</span>(<span class="kw">getCred</span>(<span class="dt">x =</span> ., <span class="dt">sig =</span> <span class="fl">0.05</span>))
+
+sel_grads_mcmc$upper_sig_star &lt;-<span class="st"> &quot;&quot;</span>
+sel_grads_mcmc$lower_sig_star &lt;-<span class="st"> &quot;&quot;</span>
+sel_grads_mcmc$upper_sig_star[sel_grads_mcmc$post_mode &gt;<span class="st"> </span><span class="dv">0</span> &amp;
+<span class="st">  </span>sel_grads_mcmc$lower &gt;<span class="st"> </span><span class="dv">0</span>] &lt;-<span class="st"> &quot;*&quot;</span>
+sel_grads_mcmc$lower_sig_star[sel_grads_mcmc$post_mode &lt;<span class="st"> </span><span class="dv">0</span> &amp;
+<span class="st">  </span>sel_grads_mcmc$upper &lt;<span class="st"> </span><span class="dv">0</span>] &lt;-<span class="st"> &quot;*&quot;</span>
+
+p &lt;-<span class="st"> </span><span class="kw">ggplot</span>(<span class="dt">data =</span> <span class="kw">filter</span>(sel_grads_mcmc, standardization ==<span class="st"> &quot;None&quot;</span>),
+  <span class="kw">aes</span>(<span class="dt">x =</span> Year, <span class="dt">y =</span> post_mode, <span class="dt">group =</span> variable)
+)
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">geom_hline</span>(<span class="dt">yintercept =</span> <span class="dv">0</span>, <span class="dt">size =</span> <span class="fl">0.25</span>) <span class="co"># Line at y = 0</span>
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">geom_errorbar</span>(<span class="kw">aes</span>(<span class="dt">ymax =</span> upper, <span class="dt">ymin =</span> lower),
+  <span class="dt">position =</span> <span class="kw">position_dodge</span>(<span class="dt">width =</span> <span class="fl">0.5</span>), <span class="dt">width =</span> <span class="fl">0.4</span>, <span class="dt">size =</span> <span class="fl">0.4</span>)
+<span class="co"># Houle data percentiles</span>
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">geom_hline</span>(<span class="dt">yintercept =</span> <span class="kw">c</span>(<span class="fl">0.2975</span>, -<span class="fl">0.2975</span>), <span class="dt">linetype =</span> <span class="dv">2</span>, <span class="dt">size =</span> <span class="fl">0.4</span>)
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">geom_point</span>(<span class="kw">aes</span>(<span class="dt">shape =</span> variable, <span class="dt">fill =</span> variable),
+  <span class="dt">position =</span> <span class="kw">position_dodge</span>(<span class="dt">width =</span> <span class="fl">0.5</span>), <span class="dt">size =</span> <span class="dv">3</span>)
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">scale_shape_manual</span>(<span class="dt">name =</span> <span class="st">&quot;B&quot;</span>, <span class="dt">values =</span> <span class="kw">c</span>(<span class="dv">24</span>, <span class="dv">21</span>, <span class="dv">22</span>))
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">scale_fill_manual</span>(<span class="dt">name =</span> <span class="st">&quot;B&quot;</span>, <span class="dt">values =</span> <span class="kw">c</span>(<span class="st">&quot;white&quot;</span>, <span class="st">&quot;black&quot;</span>, <span class="st">&quot;white&quot;</span>))
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">scale_color_manual</span>(<span class="dt">name =</span> <span class="st">&quot;B&quot;</span>, <span class="dt">values =</span> <span class="kw">c</span>(<span class="st">&quot;black&quot;</span>, <span class="st">&quot;black&quot;</span>, <span class="st">&quot;black&quot;</span>))
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">xlab</span>(<span class="st">&quot;Year&quot;</span>) 
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">ylab</span>(<span class="st">&quot;Posterior Mode ± 0.95 Credible Interval&quot;</span>)
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">theme_bw</span>(<span class="dt">base_size =</span> <span class="dv">10</span>)
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">theme</span>(<span class="dt">legend.position =</span> <span class="kw">c</span>(<span class="fl">0.92</span>, <span class="fl">0.86</span>),
+  <span class="dt">legend.background =</span> <span class="kw">element_blank</span>(), <span class="dt">legend.key.size =</span> <span class="kw">unit</span>(<span class="fl">0.4</span>, <span class="st">&quot;cm&quot;</span>))
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">theme</span>(<span class="dt">legend.title =</span> <span class="kw">element_text</span>(<span class="dt">family =</span> <span class="st">&quot;Helvetica&quot;</span>,
+                                 <span class="dt">face =</span> <span class="st">&quot;plain&quot;</span>, <span class="dt">size =</span> <span class="dv">18</span>))
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">theme</span>(<span class="dt">legend.key =</span> <span class="kw">element_blank</span>())
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">theme</span>(<span class="dt">strip.background =</span> <span class="kw">element_blank</span>())
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">theme</span>(<span class="dt">panel.grid.minor =</span> <span class="kw">element_blank</span>(),
+  <span class="dt">panel.grid.major =</span> <span class="kw">element_blank</span>())
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">theme</span>(<span class="dt">panel.border =</span> <span class="kw">element_blank</span>())
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">theme</span>(<span class="dt">axis.line =</span> <span class="kw">element_line</span>(<span class="dt">color =</span> <span class="st">&quot;black&quot;</span>))
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">geom_text</span>(<span class="kw">aes</span>(<span class="dt">x =</span> Year, <span class="dt">y =</span> upper, <span class="dt">group =</span> variable,
+  <span class="dt">label =</span> upper_sig_star), <span class="dt">vjust =</span> -<span class="fl">0.3</span>,
+  <span class="dt">position =</span> <span class="kw">position_dodge</span>(<span class="dt">width =</span> <span class="fl">0.5</span>), <span class="dt">size =</span> <span class="dv">5</span>)
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">geom_text</span>(<span class="kw">aes</span>(<span class="dt">x =</span> Year, <span class="dt">y =</span> lower, <span class="dt">group =</span> variable,
+  <span class="dt">label =</span> lower_sig_star), <span class="dt">vjust =</span> <span class="fl">1.3</span>,
+  <span class="dt">position =</span> <span class="kw">position_dodge</span>(<span class="dt">width =</span> <span class="fl">0.5</span>), <span class="dt">size =</span> <span class="dv">5</span>)
+p_sel_grad_MCMC &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">ylim</span>(<span class="kw">c</span>(-<span class="fl">1.1</span>,<span class="fl">1.4</span>))
+
+<span class="kw">pdf</span>(<span class="dt">file =</span> <span class="st">&quot;figure/04_sg_mcmc_NS_print.pdf&quot;</span>, <span class="dt">width =</span> <span class="fl">4.33</span>, <span class="dt">height =</span> <span class="dv">3</span>)
+p_sel_grad_MCMC</code></pre>
+<pre><code>## ymax not defined: adjusting position using y instead
+## ymax not defined: adjusting position using y instead
+## ymax not defined: adjusting position using y instead</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">dev.off</span>()</code></pre>
+<pre><code>## pdf 
+##   2</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r">p_sel_grad_MCMC</code></pre>
+<pre><code>## ymax not defined: adjusting position using y instead
+## ymax not defined: adjusting position using y instead
+## ymax not defined: adjusting position using y instead</code></pre>
+<div class="figure">
+<img src="figure/04_sg_mcmc_NS.png" alt="Non-standardized Selection Gradients" /><p class="caption">Non-standardized Selection Gradients</p>
+</div>
+<h3 id="correlations">Correlations</h3>
+<pre class="sourceCode r"><code class="sourceCode r">sel_grads_mcmc_flat &lt;-<span class="st"> </span><span class="kw">data.frame</span>(
+  <span class="dt">Aggression =</span> <span class="kw">filter</span>(sel_grads_mcmc, standardization ==<span class="st"> &quot;SD&quot;</span>,
+   variable ==<span class="st"> &quot;Aggression&quot;</span>)$post_mode,
+  <span class="dt">Agg_upper  =</span> <span class="kw">filter</span>(sel_grads_mcmc, standardization ==<span class="st"> &quot;SD&quot;</span>,
+   variable ==<span class="st"> &quot;Aggression&quot;</span>)$upper,
+  <span class="dt">Agg_lower  =</span> <span class="kw">filter</span>(sel_grads_mcmc, standardization ==<span class="st"> &quot;SD&quot;</span>,
+   variable ==<span class="st"> &quot;Aggression&quot;</span>)$lower,
+  <span class="dt">Activity   =</span> <span class="kw">filter</span>(sel_grads_mcmc, standardization ==<span class="st"> &quot;SD&quot;</span>,
+   variable ==<span class="st"> &quot;Activity&quot;</span>)$post_mode,
+  <span class="dt">Act_upper  =</span> <span class="kw">filter</span>(sel_grads_mcmc, standardization ==<span class="st"> &quot;SD&quot;</span>,
+   variable ==<span class="st"> &quot;Activity&quot;</span>)$upper,
+  <span class="dt">Act_lower  =</span> <span class="kw">filter</span>(sel_grads_mcmc, standardization ==<span class="st"> &quot;SD&quot;</span>,
+   variable ==<span class="st"> &quot;Activity&quot;</span>)$lower,
+  <span class="dt">Docility   =</span> <span class="kw">filter</span>(sel_grads_mcmc, standardization ==<span class="st"> &quot;SD&quot;</span>,
+   variable ==<span class="st"> &quot;Docility&quot;</span>)$post_mode,
+  <span class="dt">Doc_upper  =</span> <span class="kw">filter</span>(sel_grads_mcmc, standardization ==<span class="st"> &quot;SD&quot;</span>,
+   variable ==<span class="st"> &quot;Docility&quot;</span>)$upper,
+  <span class="dt">Doc_lower  =</span> <span class="kw">filter</span>(sel_grads_mcmc, standardization ==<span class="st"> &quot;SD&quot;</span>,
+   variable ==<span class="st"> &quot;Docility&quot;</span>)$lower
+)
+
+cor.behav &lt;-<span class="st"> </span>function(x, y){
+  ct &lt;-<span class="st"> </span><span class="kw">cor.test</span>(x, y)
+  out &lt;-<span class="st"> </span><span class="kw">data.frame</span>(<span class="dt">est =</span> ct$estimate, <span class="dt">lower =</span> ct$conf.int[<span class="dv">1</span>],
+    <span class="dt">upper =</span> ct$conf.int[<span class="dv">2</span>], <span class="dt">stringsAsFactors =</span> <span class="ot">FALSE</span>)
+  out &lt;-<span class="st"> </span><span class="kw">round</span>(out, <span class="dt">digits =</span> <span class="dv">2</span>)
+  out$print &lt;-<span class="st"> </span><span class="kw">paste</span>(out$est, <span class="st">&quot; (&quot;</span>, out$lower, <span class="st">&quot;, &quot;</span>, out$upper, <span class="st">&quot;)&quot;</span>, <span class="dt">sep =</span> <span class="st">&quot;&quot;</span>)
+}
+
+cor_agg_act &lt;-<span class="st"> </span><span class="kw">cor.behav</span>(sel_grads_mcmc_flat$Aggression, 
+  sel_grads_mcmc_flat$Activity)
+cor_agg_doc &lt;-<span class="st"> </span><span class="kw">cor.behav</span>(sel_grads_mcmc_flat$Aggression, 
+  sel_grads_mcmc_flat$Docility)
+cor_doc_act &lt;-<span class="st"> </span><span class="kw">cor.behav</span>(sel_grads_mcmc_flat$Docility, 
+  sel_grads_mcmc_flat$Activity)</code></pre>
+<h4 id="aggression-and-activity">Aggression and Activity</h4>
+<pre class="sourceCode r"><code class="sourceCode r">p &lt;-<span class="st"> </span><span class="kw">ggplot</span>(<span class="dt">data =</span> sel_grads_mcmc_flat, <span class="kw">aes</span>(<span class="dt">x =</span> Activity, <span class="dt">y =</span> Aggression))
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">geom_point</span>()
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">ylab</span>(<span class="st">&quot;Aggression&quot;</span>)
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">xlab</span>(<span class="st">&quot;Activity&quot;</span>)
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">theme_bw</span>(<span class="dt">base_size =</span> <span class="dv">10</span>)
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">theme</span>(<span class="dt">panel.grid.major =</span> <span class="kw">element_blank</span>(),
+  <span class="dt">panel.grid.minor =</span> <span class="kw">element_blank</span>(), <span class="dt">panel.background =</span> <span class="kw">element_blank</span>(),
+  <span class="dt">strip.background =</span> <span class="kw">element_blank</span>(), <span class="dt">strip.text =</span> <span class="kw">element_blank</span>(),
+  <span class="dt">panel.border =</span> <span class="kw">element_rect</span>(<span class="dt">linetype =</span> <span class="st">&quot;solid&quot;</span>, <span class="dt">colour =</span> <span class="st">&quot;black&quot;</span>))
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">geom_errorbarh</span>(<span class="kw">aes</span>(<span class="dt">xmin =</span> Act_lower, <span class="dt">xmax =</span> Act_upper),
+  <span class="dt">height =</span> <span class="fl">0.07</span>, <span class="dt">size =</span> <span class="fl">0.2</span>)
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">geom_errorbar</span>(<span class="kw">aes</span>(<span class="dt">ymin =</span> Agg_lower, <span class="dt">ymax =</span> Agg_upper),
+  <span class="dt">width =</span> <span class="fl">0.07</span>, <span class="dt">size =</span> <span class="fl">0.2</span>)
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">annotate</span>(<span class="dt">geom =</span> <span class="st">&quot;text&quot;</span>, <span class="dt">size =</span> <span class="fl">2.5</span>, <span class="dt">x =</span> <span class="fl">0.25</span>, <span class="dt">y =</span> <span class="fl">1.2</span>,
+  <span class="dt">label =</span> <span class="kw">paste</span>(<span class="st">&quot;r = &quot;</span>, cor_agg_act, <span class="dt">sep =</span> <span class="st">&#39;&#39;</span>))
+p +<span class="st"> </span><span class="kw">theme</span>(<span class="dt">plot.margin =</span> <span class="kw">unit</span>(<span class="kw">c</span>(<span class="fl">0.1</span>, <span class="fl">0.1</span>, <span class="fl">0.1</span>, <span class="fl">0.1</span>), <span class="st">&quot;cm&quot;</span>))</code></pre>
+<div class="figure">
+<img src="figure/04_agg_act_mcmc.png" />
+</div>
+<h4 id="aggression-and-docility">Aggression and Docility</h4>
+<pre class="sourceCode r"><code class="sourceCode r">p &lt;-<span class="st"> </span><span class="kw">ggplot</span>(<span class="dt">data =</span> sel_grads_mcmc_flat, <span class="kw">aes</span>(<span class="dt">y =</span> Aggression, <span class="dt">x =</span> Docility))
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">geom_point</span>()
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">ylab</span>(<span class="st">&quot;Aggression&quot;</span>)
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">xlab</span>(<span class="st">&quot;Docility&quot;</span>)
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">theme_bw</span>(<span class="dt">base_size =</span> <span class="dv">10</span>)
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">theme</span>(<span class="dt">panel.grid.major =</span> <span class="kw">element_blank</span>(),
+  <span class="dt">panel.grid.minor =</span> <span class="kw">element_blank</span>(), <span class="dt">panel.background =</span> <span class="kw">element_blank</span>(),
+  <span class="dt">strip.background =</span> <span class="kw">element_blank</span>(), <span class="dt">strip.text =</span> <span class="kw">element_blank</span>(),
+  <span class="dt">panel.border =</span> <span class="kw">element_rect</span>(<span class="dt">linetype =</span> <span class="st">&quot;solid&quot;</span>, <span class="dt">colour =</span> <span class="st">&quot;black&quot;</span>))
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">geom_errorbarh</span>(<span class="kw">aes</span>(<span class="dt">xmin =</span> Doc_lower, <span class="dt">xmax =</span> Doc_upper),
+  <span class="dt">height =</span> <span class="fl">0.07</span>, <span class="dt">size =</span> <span class="fl">0.2</span>)
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">geom_errorbar</span>(<span class="kw">aes</span>(<span class="dt">ymin =</span> Agg_lower, <span class="dt">ymax =</span> Agg_upper),
+  <span class="dt">width =</span> <span class="fl">0.03</span>, <span class="dt">size =</span> <span class="fl">0.2</span>)
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">annotate</span>(<span class="dt">geom =</span> <span class="st">&quot;text&quot;</span>, <span class="dt">size =</span> <span class="fl">2.5</span>, <span class="dt">x =</span> -<span class="fl">0.3</span>, <span class="dt">y =</span> <span class="fl">1.2</span>,
+  <span class="dt">label =</span> <span class="kw">paste</span>(<span class="st">&quot;r = &quot;</span>, cor_agg_doc, <span class="dt">sep =</span> <span class="st">&#39;&#39;</span>))
+p +<span class="st"> </span><span class="kw">theme</span>(<span class="dt">plot.margin =</span> <span class="kw">unit</span>(<span class="kw">c</span>(<span class="fl">0.1</span>, <span class="fl">0.1</span>, <span class="fl">0.1</span>, <span class="fl">0.1</span>), <span class="st">&quot;cm&quot;</span>))</code></pre>
+<div class="figure">
+<img src="figure/04_agg_doc_mcmc.png" />
+</div>
+<h4 id="activity-and-docility">Activity and Docility</h4>
+<pre class="sourceCode r"><code class="sourceCode r">p &lt;-<span class="st"> </span><span class="kw">ggplot</span>(<span class="dt">data =</span> sel_grads_mcmc_flat, <span class="kw">aes</span>(<span class="dt">x =</span> Activity, <span class="dt">y =</span> Docility))
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">geom_point</span>()
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">xlab</span>(<span class="st">&quot;Activity&quot;</span>)
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">ylab</span>(<span class="st">&quot;Docility&quot;</span>)
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">theme_bw</span>(<span class="dt">base_size =</span> <span class="dv">10</span>)
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">theme</span>(<span class="dt">panel.grid.major =</span> <span class="kw">element_blank</span>(),
+  <span class="dt">panel.grid.minor =</span> <span class="kw">element_blank</span>(), <span class="dt">panel.background =</span> <span class="kw">element_blank</span>(),
+  <span class="dt">strip.background =</span> <span class="kw">element_blank</span>(), <span class="dt">strip.text =</span> <span class="kw">element_blank</span>(),
+  <span class="dt">panel.border =</span> <span class="kw">element_rect</span>(<span class="dt">linetype =</span> <span class="st">&quot;solid&quot;</span>, <span class="dt">colour =</span> <span class="st">&quot;black&quot;</span>))
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">geom_errorbar</span>(<span class="kw">aes</span>(<span class="dt">ymin =</span> Doc_lower, <span class="dt">ymax =</span> Doc_upper),
+  <span class="dt">width =</span> <span class="fl">0.07</span>, <span class="dt">size =</span> <span class="fl">0.2</span>)
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">geom_errorbarh</span>(<span class="kw">aes</span>(<span class="dt">xmin =</span> Act_lower, <span class="dt">xmax =</span> Act_upper),
+  <span class="dt">height =</span> <span class="fl">0.03</span>, <span class="dt">size =</span> <span class="fl">0.2</span>)
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">annotate</span>(<span class="dt">geom =</span> <span class="st">&quot;text&quot;</span>, <span class="dt">size =</span> <span class="fl">2.5</span>, <span class="dt">x =</span> <span class="dv">0</span>, <span class="dt">y =</span> <span class="fl">0.6</span>,
+  <span class="dt">label =</span> <span class="kw">paste</span>(<span class="st">&quot;r = &quot;</span>, cor_doc_act, <span class="dt">sep =</span> <span class="st">&#39;&#39;</span>))
+p +<span class="st"> </span><span class="kw">theme</span>(<span class="dt">plot.margin =</span> <span class="kw">unit</span>(<span class="kw">c</span>(<span class="fl">0.1</span>, <span class="fl">0.1</span>, <span class="fl">0.1</span>, <span class="fl">0.1</span>), <span class="st">&quot;cm&quot;</span>))</code></pre>
+<div class="figure">
+<img src="figure/04_act_doc_mcmc.png" />
+</div>
+<h3 id="summary-stats">Summary Stats</h3>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">library</span>(dplyr)
+sign_change &lt;-<span class="st"> </span>function(x){
+  <span class="co"># sign changes calculated as the number of changes in direction between </span>
+  <span class="co"># successive years relative to n−1</span>
+  s &lt;-<span class="st"> </span><span class="kw">sign</span>(x)
+  <span class="kw">sum</span>(s[<span class="dv">1</span>:(<span class="kw">length</span>(s)-<span class="dv">1</span>)] !=<span class="st"> </span>s[-<span class="dv">1</span>])/(<span class="kw">length</span>(s)-<span class="dv">1</span>)
+}
+se &lt;-<span class="st"> </span>function(lower, upper){
+  (upper -<span class="st"> </span>lower) /<span class="st"> </span><span class="fl">3.92</span>
+}
+
+sum_stats_mcmc &lt;-<span class="st"> </span>sel_grads_mcmc %&gt;%
+<span class="kw">filter</span>(standardization ==<span class="st"> &quot;SD&quot;</span>) %&gt;%
+<span class="kw">group_by</span>(variable, <span class="dt">add =</span> <span class="ot">FALSE</span>) %&gt;%
+<span class="kw">summarise</span>(
+  <span class="dt">mean_abs_b =</span> <span class="kw">mean</span>(<span class="kw">abs</span>(post_mode)),
+  <span class="dt">abs_mean_b =</span> <span class="kw">abs</span>(<span class="kw">mean</span>(post_mode)),
+  <span class="dt">sd_b =</span> <span class="kw">sd</span>(post_mode),
+  <span class="dt">mean_se_b =</span> <span class="kw">mean</span>(<span class="kw">se</span>(lower, upper)),
+  <span class="dt">freq_sign =</span> <span class="kw">sign_change</span>(post_mode),
+  <span class="dt">mean_cv =</span> <span class="kw">mean</span>(<span class="kw">se</span>(lower, upper) /<span class="st"> </span><span class="kw">abs</span>(post_mode))
+  )
+sum_stats_mcmc[ ,<span class="dv">2</span>:<span class="dv">6</span>] &lt;-<span class="st"> </span><span class="kw">round</span>(sum_stats_mcmc[ ,<span class="dv">2</span>:<span class="dv">6</span>], <span class="dv">2</span>)
+<span class="kw">pandoc.table</span>(sum_stats_mcmc)</code></pre>
+<table>
+<caption>Table continues below</caption>
+<col width="15%" />
+<col width="18%" />
+<col width="18%" />
+<col width="9%" />
+<col width="15%" />
+<thead>
+<tr class="header">
+<th align="center">variable</th>
+<th align="center">mean_abs_b</th>
+<th align="center">abs_mean_b</th>
+<th align="center">sd_b</th>
+<th align="center">mean_se_b</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="center">Activity</td>
+<td align="center">0.24</td>
+<td align="center">0.05</td>
+<td align="center">0.37</td>
+<td align="center">0.23</td>
+</tr>
+<tr class="even">
+<td align="center">Aggression</td>
+<td align="center">0.19</td>
+<td align="center">0.07</td>
+<td align="center">0.25</td>
+<td align="center">0.22</td>
+</tr>
+<tr class="odd">
+<td align="center">Docility</td>
+<td align="center">0.2</td>
+<td align="center">0.12</td>
+<td align="center">0.21</td>
+<td align="center">0.16</td>
+</tr>
+</tbody>
+</table>
+<table>
+<col width="16%" />
+<col width="12%" />
+<thead>
+<tr class="header">
+<th align="center">freq_sign</th>
+<th align="center">mean_cv</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="center">0.29</td>
+<td align="center">3.307</td>
+</tr>
+<tr class="even">
+<td align="center">0.71</td>
+<td align="center">4.002</td>
+</tr>
+<tr class="odd">
+<td align="center">0.57</td>
+<td align="center">1.845</td>
+</tr>
+</tbody>
+</table>
+<h2 id="ignoring-random-effect-uncertainty">Ignoring random effect uncertainty</h2>
+<p>Calculate selection gradients from BLUPs, estimate SE using jackknifing.</p>
+<h3 id="calculate-selection-gradients-1">Calculate selection gradients</h3>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="co"># Calculate standardized selection gradients</span>
+seCoeffLmer &lt;-<span class="st"> </span>function(x){
+  model &lt;-<span class="st"> </span><span class="kw">lm</span>(rel_ars ~<span class="st"> </span>aggression +<span class="st"> </span>activity +<span class="st"> </span>docility, <span class="dt">data =</span> x)
+  model_sy &lt;-<span class="st"> </span><span class="kw">lm</span>(rel_ars ~<span class="st"> </span>aggression_sy +<span class="st"> </span>activity_sy +<span class="st"> </span>docility_sy, <span class="dt">data =</span> x)
+  mod_coefs &lt;-<span class="st"> </span><span class="kw">c</span>(<span class="kw">coef</span>(model)[-<span class="dv">1</span>], <span class="kw">coef</span>(model_sy)[-<span class="dv">1</span>])
+  sim_coefs &lt;-<span class="st"> </span><span class="kw">data.frame</span>(<span class="kw">coef</span>(<span class="kw">sim</span>(model))[ ,-<span class="dv">1</span>], <span class="kw">coef</span>(<span class="kw">sim</span>(model_sy))[ ,-<span class="dv">1</span>]) ## Simulated coefficients for calculating uncertainty.
+  <span class="kw">names</span>(sim_coefs) &lt;-<span class="st"> </span><span class="kw">names</span>(mod_coefs)
+  sim_CI &lt;-<span class="st"> </span><span class="kw">apply</span>(sim_coefs, <span class="dv">2</span>, quantile, <span class="dt">prob =</span> <span class="kw">c</span>(<span class="fl">0.025</span>, <span class="fl">0.975</span>)) <span class="co">#0.95 conf. int.</span>
+  
+docil_mean_coef &lt;-<span class="st"> </span>mod_coefs[<span class="st">&quot;docility&quot;</span>] *<span class="st"> </span><span class="kw">mean</span>(x$docility, <span class="dt">na.rm =</span> <span class="ot">TRUE</span>)
+  out &lt;-<span class="st"> </span><span class="kw">data.frame</span>(
+    <span class="dt">standardization =</span> <span class="kw">c</span>(<span class="st">&quot;None&quot;</span>,<span class="st">&quot;None&quot;</span>,<span class="st">&quot;None&quot;</span>,<span class="st">&quot;SD&quot;</span>,<span class="st">&quot;SD&quot;</span>,<span class="st">&quot;SD&quot;</span>,<span class="st">&quot;Mean&quot;</span>),
+    <span class="dt">Year =</span> <span class="kw">as.numeric</span>(<span class="kw">rep</span>(<span class="kw">as.character</span>(x$Year[<span class="dv">1</span>]), <span class="dv">7</span>)),
+    <span class="dt">variable =</span> <span class="kw">c</span>(<span class="st">&quot;Aggression&quot;</span>, <span class="st">&quot;Activity&quot;</span>, <span class="st">&quot;Docility&quot;</span>, <span class="st">&quot;Aggression&quot;</span>, 
+      <span class="st">&quot;Activity&quot;</span>, <span class="st">&quot;Docility&quot;</span>, <span class="st">&quot;Docility&quot;</span>),
+    <span class="dt">coefficients =</span> <span class="kw">c</span>(mod_coefs, docil_mean_coef),
+    <span class="dt">lower =</span> <span class="kw">c</span>(sim_CI[<span class="dv">1</span>, ], <span class="dv">0</span>),
+    <span class="dt">upper =</span> <span class="kw">c</span>(sim_CI[<span class="dv">2</span>, ],<span class="dv">0</span>)
+    )
+    <span class="kw">return</span>(out)
+}
+
+sel_grads_blup &lt;-<span class="st"> </span>fit_raneff_data %&gt;%
+<span class="st">  </span><span class="kw">filter</span>(type ==<span class="st"> &quot;blup&quot;</span>) %&gt;%
+<span class="st">  </span><span class="kw">group_by</span>(Year, <span class="dt">add =</span> <span class="ot">FALSE</span>) %&gt;%
+<span class="st">  </span><span class="kw">do</span>(<span class="kw">seCoeffLmer</span>(.))
+sel_grads_blup$variable &lt;-<span class="st"> </span><span class="kw">as.character</span>(sel_grads_blup$variable)
+sel_grads_blup$Year &lt;-<span class="st"> </span><span class="kw">as.character</span>(sel_grads_blup$Year)
+sel_grads_blup &lt;-<span class="st"> </span><span class="kw">tbl_df</span>(sel_grads_blup)
+<span class="kw">save</span>(sel_grads_blup, <span class="dt">file =</span> <span class="st">&quot;data/analyses_data/sel_grads_blup.RData&quot;</span>)</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">load</span>(<span class="st">&quot;data/analyses_data/sel_grads_blup.RData&quot;</span>)
+<span class="co"># Format for table</span>
+sgt &lt;-<span class="st"> </span>sel_grads_blup
+sgt$sig_star &lt;-<span class="st"> &quot;&quot;</span>
+sgt$sig_star[sgt$coefficients &gt;<span class="st"> </span><span class="dv">0</span> &amp;<span class="st"> </span>sgt$lower &gt;<span class="st"> </span><span class="dv">0</span>] &lt;-<span class="st"> &quot;*&quot;</span>
+sgt$sig_star[sgt$coefficients &lt;<span class="st"> </span><span class="dv">0</span> &amp;<span class="st"> </span>sgt$upper &lt;<span class="st"> </span><span class="dv">0</span>] &lt;-<span class="st"> &quot;*&quot;</span>
+sgt$coefficients &lt;-<span class="st"> </span><span class="kw">format</span>(<span class="kw">round</span>(sgt$coefficients, <span class="dt">digits =</span> <span class="dv">2</span>),
+  <span class="dt">digits =</span> <span class="dv">1</span>, <span class="dt">nsmall =</span> <span class="dv">2</span>)
+sgt$lower &lt;-<span class="st"> </span><span class="kw">format</span>(<span class="kw">round</span>(sgt$lower, <span class="dt">digits =</span> <span class="dv">2</span>),
+  <span class="dt">digits =</span> <span class="dv">1</span>, <span class="dt">nsmall =</span> <span class="dv">2</span>)
+sgt$upper &lt;-<span class="st"> </span><span class="kw">format</span>(<span class="kw">round</span>(sgt$upper, <span class="dt">digits =</span> <span class="dv">2</span>),
+  <span class="dt">digits =</span> <span class="dv">1</span>, <span class="dt">nsmall =</span> <span class="dv">2</span>)
+sgt$prb &lt;-<span class="st"> </span><span class="ot">NA</span>
+sgt$coef &lt;-<span class="st"> </span><span class="kw">paste</span>(sgt$coefficients,
+  <span class="st">&quot; (&quot;</span>, sgt$lower, <span class="st">&quot; to &quot;</span>, sgt$upper,<span class="st">&quot;)&quot;</span>, sgt$sig_star, <span class="dt">sep =</span> <span class="st">&#39;&#39;</span>)
+
+sgt_agg &lt;-<span class="st"> </span><span class="kw">filter</span>(sgt, standardization ==<span class="st"> &quot;None&quot;</span> &amp;<span class="st"> </span>variable ==<span class="st"> &quot;Aggression&quot;</span>)
+sgt_act &lt;-<span class="st"> </span><span class="kw">filter</span>(sgt, standardization ==<span class="st"> &quot;None&quot;</span> &amp;<span class="st"> </span>variable ==<span class="st"> &quot;Activity&quot;</span>)
+sgt_doc &lt;-<span class="st"> </span><span class="kw">filter</span>(sgt, standardization ==<span class="st"> &quot;None&quot;</span> &amp;<span class="st"> </span>variable ==<span class="st"> &quot;Docility&quot;</span>)
+
+sgt_agg_sd &lt;-<span class="st"> </span><span class="kw">filter</span>(sgt, standardization ==<span class="st"> &quot;SD&quot;</span> &amp;<span class="st">  </span>variable ==<span class="st"> &quot;Aggression&quot;</span>)
+sgt_act_sd &lt;-<span class="st"> </span><span class="kw">filter</span>(sgt, standardization ==<span class="st"> &quot;SD&quot;</span> &amp;<span class="st">  </span>variable ==<span class="st"> &quot;Activity&quot;</span>)
+sgt_doc_sd &lt;-<span class="st"> </span><span class="kw">filter</span>(sgt, standardization ==<span class="st"> &quot;SD&quot;</span> &amp;<span class="st">  </span>variable ==<span class="st"> &quot;Docility&quot;</span>)
+
+sgt_doc_ms &lt;-<span class="st"> </span><span class="kw">filter</span>(sgt, standardization ==<span class="st"> &quot;Mean&quot;</span> &amp;<span class="st">  </span>variable ==<span class="st"> &quot;Docility&quot;</span>)
+
+N &lt;-<span class="st"> </span>fit_raneff_data %&gt;%
+<span class="st">  </span><span class="kw">filter</span>(type ==<span class="st"> &quot;blup&quot;</span>) %&gt;%
+<span class="st">  </span><span class="kw">group_by</span>(Year, <span class="dt">add =</span> <span class="ot">FALSE</span>) %&gt;%
+<span class="st">  </span><span class="kw">summarise</span>(<span class="dt">n =</span> <span class="kw">n</span>(), <span class="dt">t_kprod =</span> <span class="kw">sum</span>(kprod), <span class="dt">t_ars =</span> <span class="kw">sum</span>(ars_all), <span class="dt">mean_docil =</span> <span class="kw">mean</span>(docility, <span class="dt">na.rm =</span> <span class="ot">TRUE</span>))
+
+<span class="kw">pandoc.table</span>(
+  <span class="kw">data.frame</span>(
+    <span class="dt">Year =</span> N$Year,
+    <span class="dt">Aggression =</span> sgt_agg$coef,
+    <span class="dt">Activity =</span> sgt_act$coef,
+    <span class="dt">Docility =</span> sgt_doc$coef
+  ),
+  <span class="dt">caption =</span><span class="st">&quot;Traditional selection gradients (ignoring behavioural uncertainty). Not standardized.&quot;</span>
+)</code></pre>
+<table>
+<caption>Traditional selection gradients (ignoring behavioural uncertainty). Not standardized. (continued below)</caption>
+<col width="9%" />
+<col width="33%" />
+<col width="33%" />
+<thead>
+<tr class="header">
+<th align="center">Year</th>
+<th align="center">Aggression</th>
+<th align="center">Activity</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="center">2003</td>
+<td align="center">-0.26 (-1.66 to 0.61)</td>
+<td align="center">0.90 (-0.25 to 1.76)</td>
+</tr>
+<tr class="even">
+<td align="center">2004</td>
+<td align="center">-0.75 (-1.36 to -0.05)*</td>
+<td align="center">0.57 (-0.18 to 1.35)</td>
+</tr>
+<tr class="odd">
+<td align="center">2005</td>
+<td align="center">-0.56 (-1.02 to -0.06)*</td>
+<td align="center">0.46 (-0.08 to 0.98)</td>
+</tr>
+<tr class="even">
+<td align="center">2006</td>
+<td align="center">0.98 ( 0.20 to 1.86)*</td>
+<td align="center">-0.33 (-1.11 to 0.48)</td>
+</tr>
+<tr class="odd">
+<td align="center">2007</td>
+<td align="center">-0.09 (-0.92 to 0.49)</td>
+<td align="center">0.19 (-0.53 to 0.88)</td>
+</tr>
+<tr class="even">
+<td align="center">2008</td>
+<td align="center">1.11 (-0.36 to 2.30)</td>
+<td align="center">-0.60 (-1.46 to 0.94)</td>
+</tr>
+<tr class="odd">
+<td align="center">2009</td>
+<td align="center">0.75 (-0.09 to 1.39)</td>
+<td align="center">-1.38 (-2.11 to -0.60)*</td>
+</tr>
+<tr class="even">
+<td align="center">2010</td>
+<td align="center">-0.03 (-0.74 to 0.67)</td>
+<td align="center">0.12 (-0.54 to 0.77)</td>
+</tr>
+</tbody>
+</table>
+<table>
+<col width="30%" />
+<thead>
+<tr class="header">
+<th align="center">Docility</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="center">-0.11 (-0.36 to 0.10)</td>
+</tr>
+<tr class="even">
+<td align="center">0.07 (-0.13 to 0.24)</td>
+</tr>
+<tr class="odd">
+<td align="center">0.05 (-0.04 to 0.16)</td>
+</tr>
+<tr class="even">
+<td align="center">-0.10 (-0.22 to 0.04)</td>
+</tr>
+<tr class="odd">
+<td align="center">0.01 (-0.11 to 0.13)</td>
+</tr>
+<tr class="even">
+<td align="center">-0.04 (-0.21 to 0.13)</td>
+</tr>
+<tr class="odd">
+<td align="center">-0.12 (-0.23 to 0.00)*</td>
+</tr>
+<tr class="even">
+<td align="center">-0.05 (-0.12 to 0.04)</td>
+</tr>
+</tbody>
+</table>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">pandoc.table</span>(
+  <span class="kw">data.frame</span>(
+    <span class="dt">Year =</span> N$Year,
+    <span class="dt">Aggression =</span> sgt_agg_sd$coef,
+    <span class="dt">Activity =</span> sgt_act_sd$coef,
+    <span class="dt">Docility =</span> sgt_doc_sd$coef
+  ),
+  <span class="dt">caption =</span><span class="st">&quot;Traditional selection gradients (ignoring behavioural uncertainty). SD-standardized.&quot;</span>
+)</code></pre>
+<table>
+<caption>Traditional selection gradients (ignoring behavioural uncertainty). SD-standardized. (continued below)</caption>
+<col width="9%" />
+<col width="33%" />
+<col width="33%" />
+<thead>
+<tr class="header">
+<th align="center">Year</th>
+<th align="center">Aggression</th>
+<th align="center">Activity</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="center">2003</td>
+<td align="center">-0.17 (-1.25 to 0.57)</td>
+<td align="center">0.86 (-0.20 to 1.96)</td>
+</tr>
+<tr class="even">
+<td align="center">2004</td>
+<td align="center">-0.62 (-1.17 to 0.22)</td>
+<td align="center">0.49 (-0.37 to 1.29)</td>
+</tr>
+<tr class="odd">
+<td align="center">2005</td>
+<td align="center">-0.41 (-0.71 to -0.04)*</td>
+<td align="center">0.34 (-0.10 to 0.76)</td>
+</tr>
+<tr class="even">
+<td align="center">2006</td>
+<td align="center">0.66 ( 0.13 to 1.19)*</td>
+<td align="center">-0.23 (-0.96 to 0.35)</td>
+</tr>
+<tr class="odd">
+<td align="center">2007</td>
+<td align="center">-0.07 (-0.57 to 0.48)</td>
+<td align="center">0.15 (-0.44 to 0.63)</td>
+</tr>
+<tr class="even">
+<td align="center">2008</td>
+<td align="center">0.78 ( 0.20 to 1.54)*</td>
+<td align="center">-0.44 (-1.64 to 0.39)</td>
+</tr>
+<tr class="odd">
+<td align="center">2009</td>
+<td align="center">0.56 ( 0.05 to 1.20)*</td>
+<td align="center">-1.01 (-1.84 to -0.47)*</td>
+</tr>
+<tr class="even">
+<td align="center">2010</td>
+<td align="center">-0.02 (-0.43 to 0.56)</td>
+<td align="center">0.10 (-0.34 to 0.50)</td>
+</tr>
+</tbody>
+</table>
+<table>
+<col width="31%" />
+<thead>
+<tr class="header">
+<th align="center">Docility</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="center">-0.40 (-1.22 to 0.61)</td>
+</tr>
+<tr class="even">
+<td align="center">0.26 (-0.29 to 1.01)</td>
+</tr>
+<tr class="odd">
+<td align="center">0.19 (-0.11 to 0.54)</td>
+</tr>
+<tr class="even">
+<td align="center">-0.41 (-0.92 to 0.17)</td>
+</tr>
+<tr class="odd">
+<td align="center">0.03 (-0.47 to 0.52)</td>
+</tr>
+<tr class="even">
+<td align="center">-0.17 (-0.81 to 0.45)</td>
+</tr>
+<tr class="odd">
+<td align="center">-0.56 (-1.07 to -0.06)*</td>
+</tr>
+<tr class="even">
+<td align="center">-0.21 (-0.47 to 0.16)</td>
+</tr>
+</tbody>
+</table>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">pandoc.table</span>(
+  <span class="kw">data.frame</span>(
+    <span class="dt">Year =</span> N$Year,
+    <span class="dt">Docility =</span> sgt_doc_ms$coefficients,
+    <span class="dt">mean =</span> N$mean_docil
+  ),
+  <span class="dt">caption =</span><span class="st">&quot;Traditional selection gradients (ignoring behavioural uncertainty). Mean-standardized.&quot;</span>
+)</code></pre>
+<table>
+<caption>Traditional selection gradients (ignoring behavioural uncertainty). Mean-standardized.</caption>
+<col width="9%" />
+<col width="15%" />
+<col width="8%" />
+<thead>
+<tr class="header">
+<th align="center">Year</th>
+<th align="center">Docility</th>
+<th align="center">mean</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="center">2003</td>
+<td align="center">-1.86</td>
+<td align="center">17.29</td>
+</tr>
+<tr class="even">
+<td align="center">2004</td>
+<td align="center">1.25</td>
+<td align="center">17.31</td>
+</tr>
+<tr class="odd">
+<td align="center">2005</td>
+<td align="center">0.88</td>
+<td align="center">17.25</td>
+</tr>
+<tr class="even">
+<td align="center">2006</td>
+<td align="center">-1.72</td>
+<td align="center">16.77</td>
+</tr>
+<tr class="odd">
+<td align="center">2007</td>
+<td align="center">0.12</td>
+<td align="center">16.77</td>
+</tr>
+<tr class="even">
+<td align="center">2008</td>
+<td align="center">-0.63</td>
+<td align="center">16.9</td>
+</tr>
+<tr class="odd">
+<td align="center">2009</td>
+<td align="center">-2.04</td>
+<td align="center">16.79</td>
+</tr>
+<tr class="even">
+<td align="center">2010</td>
+<td align="center">-0.79</td>
+<td align="center">17.19</td>
+</tr>
+</tbody>
+</table>
+<h3 id="plot">Plot</h3>
+<p><strong>Female Linear Selection Gradients ARS</strong><br />Linear selection gradients ± 95% credible intervals for female behavioral traits on annual reproductive success.</p>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">load</span>(<span class="st">&quot;data/analyses_data/sel_grads_blup.RData&quot;</span>)
+sel_grads_blup$post_mode &lt;-<span class="st"> </span>sel_grads_blup$coefficients
+sel_grads_blup$upper_sig_star &lt;-<span class="st"> &quot;&quot;</span>
+sel_grads_blup$lower_sig_star &lt;-<span class="st"> &quot;&quot;</span>
+sel_grads_blup$upper_sig_star[sel_grads_blup$coefficients &gt;<span class="st"> </span><span class="dv">0</span> &amp;<span class="st"> </span>
+<span class="st">  </span>sel_grads_blup$lower &gt;<span class="st"> </span><span class="dv">0</span>] &lt;-<span class="st"> &quot;*&quot;</span>
+sel_grads_blup$lower_sig_star[sel_grads_blup$coefficients &lt;<span class="st"> </span><span class="dv">0</span> &amp;
+<span class="st">  </span>sel_grads_blup$upper &lt;<span class="st"> </span><span class="dv">0</span>] &lt;-<span class="st"> &quot;*&quot;</span>
+sel_grads_blup$upper_sig_01_star &lt;-<span class="st"> &quot;&quot;</span>
+sel_grads_blup$lower_sig_01_star &lt;-<span class="st"> &quot;&quot;</span>
+sel_grads_blup$upper_sig_01_star[sel_grads_blup$coefficients &gt;<span class="st"> </span><span class="dv">0</span>
+  &amp;<span class="st"> </span>sel_grads_blup$lower_1 &gt;<span class="st"> </span><span class="dv">0</span>] &lt;-<span class="st"> &quot;.&quot;</span>
+sel_grads_blup$lower_sig_01_star[sel_grads_blup$coefficients &lt;<span class="st"> </span><span class="dv">0</span>
+  &amp;<span class="st"> </span>sel_grads_blup$upper_1 &lt;<span class="st"> </span><span class="dv">0</span>] &lt;-<span class="st"> &quot;.&quot;</span>
+sel_grads_blup$upper_sig_01_star[sel_grads_blup$coefficients &gt;<span class="st"> </span><span class="dv">0</span>
+  &amp;<span class="st"> </span>sel_grads_blup$lower &gt;<span class="st"> </span><span class="dv">0</span>] &lt;-<span class="st"> &quot;&quot;</span>
+sel_grads_blup$lower_sig_01_star[sel_grads_blup$coefficients &lt;<span class="st"> </span><span class="dv">0</span>
+  &amp;<span class="st"> </span>sel_grads_blup$upper &lt;<span class="st"> </span><span class="dv">0</span>] &lt;-<span class="st"> &quot;&quot;</span>
+
+<span class="kw">pdf</span>(<span class="dt">file =</span> <span class="st">&quot;figure/04_sg_blup_SD_print.pdf&quot;</span>, <span class="dt">width =</span> <span class="fl">4.33</span>, <span class="dt">height =</span> <span class="dv">3</span>)
+p &lt;-<span class="st"> </span>p_sel_grad_MCMC %+%<span class="st"> </span><span class="kw">filter</span>(sel_grads_blup, standardization ==<span class="st"> &quot;SD&quot;</span>)
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">ylab</span>(<span class="st">&quot;Coefficient ± 0.95 Confidence Interval&quot;</span>)
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">geom_text</span>(<span class="kw">aes</span>(<span class="dt">x =</span> Year, <span class="dt">y =</span> upper, <span class="dt">group =</span> variable,
+  <span class="dt">label =</span> upper_sig_01_star), <span class="dt">vjust =</span> -<span class="fl">0.3</span>,
+  <span class="dt">position =</span> <span class="kw">position_dodge</span>(<span class="dt">width =</span> <span class="fl">0.5</span>), <span class="dt">size =</span> <span class="dv">7</span>)
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">geom_text</span>(<span class="kw">aes</span>(<span class="dt">x =</span> Year, <span class="dt">y =</span> lower, <span class="dt">group =</span> variable,
+  <span class="dt">label =</span> lower_sig_01_star), <span class="dt">vjust =</span>  <span class="fl">0.5</span>,
+  <span class="dt">position =</span> <span class="kw">position_dodge</span>(<span class="dt">width =</span> <span class="fl">0.5</span>), <span class="dt">size =</span> <span class="dv">7</span>)
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">geom_text</span>(<span class="kw">aes</span>(<span class="dt">x =</span> Year, <span class="dt">y =</span> upper, <span class="dt">group =</span> variable,
+  <span class="dt">label =</span> upper_sig_star), <span class="dt">vjust =</span> -<span class="fl">0.3</span>,
+  <span class="dt">position =</span> <span class="kw">position_dodge</span>(<span class="dt">width =</span> <span class="fl">0.5</span>), <span class="dt">size =</span> <span class="dv">5</span>)
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">geom_text</span>(<span class="kw">aes</span>(<span class="dt">x =</span> Year, <span class="dt">y =</span> lower, <span class="dt">group =</span> variable,
+  <span class="dt">label =</span> lower_sig_star), <span class="dt">vjust =</span>  <span class="fl">1.3</span>,
+  <span class="dt">position =</span> <span class="kw">position_dodge</span>(<span class="dt">width =</span> <span class="fl">0.5</span>), <span class="dt">size =</span> <span class="dv">5</span>)
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">ylim</span>(<span class="kw">c</span>(-<span class="dv">2</span>, <span class="dv">2</span>))</code></pre>
+<pre><code>## Scale for &#39;y&#39; is already present. Adding another scale for &#39;y&#39;, which will replace the existing scale.</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r">p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">scale_shape_manual</span>(<span class="dt">name =</span> <span class="st">&quot;A&quot;</span>, <span class="dt">values =</span> <span class="kw">c</span>(<span class="dv">24</span>, <span class="dv">21</span>, <span class="dv">22</span>))</code></pre>
+<pre><code>## Scale for &#39;shape&#39; is already present. Adding another scale for &#39;shape&#39;, which will replace the existing scale.</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r">p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">scale_fill_manual</span>(<span class="dt">name =</span> <span class="st">&quot;A&quot;</span>, <span class="dt">values =</span> <span class="kw">c</span>(<span class="st">&quot;white&quot;</span>, <span class="st">&quot;black&quot;</span>, <span class="st">&quot;white&quot;</span>))</code></pre>
+<pre><code>## Scale for &#39;fill&#39; is already present. Adding another scale for &#39;fill&#39;, which will replace the existing scale.</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r">p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">scale_color_manual</span>(<span class="dt">name =</span> <span class="st">&quot;A&quot;</span>, <span class="dt">values =</span> <span class="kw">c</span>(<span class="st">&quot;black&quot;</span>, <span class="st">&quot;black&quot;</span>, <span class="st">&quot;black&quot;</span>))</code></pre>
+<pre><code>## Scale for &#39;colour&#39; is already present. Adding another scale for &#39;colour&#39;, which will replace the existing scale.</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r">p</code></pre>
+<pre><code>## ymax not defined: adjusting position using y instead
+## ymax not defined: adjusting position using y instead
+## ymax not defined: adjusting position using y instead
+## ymax not defined: adjusting position using y instead
+## ymax not defined: adjusting position using y instead
+## ymax not defined: adjusting position using y instead
+## ymax not defined: adjusting position using y instead</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">dev.off</span>()</code></pre>
+<pre><code>## pdf 
+##   2</code></pre>
+<pre class="sourceCode r"><code class="sourceCode r">p</code></pre>
+<pre><code>## ymax not defined: adjusting position using y instead
+## ymax not defined: adjusting position using y instead
+## ymax not defined: adjusting position using y instead
+## ymax not defined: adjusting position using y instead
+## ymax not defined: adjusting position using y instead
+## ymax not defined: adjusting position using y instead
+## ymax not defined: adjusting position using y instead</code></pre>
+<div class="figure">
+<img src="figure/04_sg_blup_SD.png" />
+</div>
+<h3 id="correlations-1">Correlations</h3>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">load</span>(<span class="st">&quot;data/analyses_data/sel_grads_blup.RData&quot;</span>)
+sel_grads_blup_flat &lt;-<span class="st"> </span><span class="kw">data.frame</span>(
+  <span class="dt">Aggression =</span> <span class="kw">filter</span>(sel_grads_blup, standardization ==<span class="st"> &quot;SD&quot;</span> &amp;
+<span class="st">   </span>variable ==<span class="st"> &quot;Aggression&quot;</span>)$coefficients,
+  <span class="dt">Agg_upper  =</span> <span class="kw">filter</span>(sel_grads_blup, standardization ==<span class="st"> &quot;SD&quot;</span> &amp;
+<span class="st">   </span>variable ==<span class="st"> &quot;Aggression&quot;</span>)$upper,
+  <span class="dt">Agg_lower  =</span> <span class="kw">filter</span>(sel_grads_blup, standardization ==<span class="st"> &quot;SD&quot;</span> &amp;
+<span class="st">   </span>variable ==<span class="st"> &quot;Aggression&quot;</span>)$lower,
+  <span class="dt">Activity   =</span> <span class="kw">filter</span>(sel_grads_blup, standardization ==<span class="st"> &quot;SD&quot;</span> &amp;
+<span class="st">   </span>variable ==<span class="st"> &quot;Activity&quot;</span>)$coefficients,
+  <span class="dt">Act_upper  =</span> <span class="kw">filter</span>(sel_grads_blup, standardization ==<span class="st"> &quot;SD&quot;</span> &amp;
+<span class="st">   </span>variable ==<span class="st"> &quot;Activity&quot;</span>)$upper,
+  <span class="dt">Act_lower  =</span> <span class="kw">filter</span>(sel_grads_blup, standardization ==<span class="st"> &quot;SD&quot;</span> &amp;
+<span class="st">   </span>variable ==<span class="st"> &quot;Activity&quot;</span>)$lower,
+  <span class="dt">Docility   =</span> <span class="kw">filter</span>(sel_grads_blup, standardization ==<span class="st"> &quot;SD&quot;</span> &amp;
+<span class="st">   </span>variable ==<span class="st"> &quot;Docility&quot;</span>)$coefficients,
+  <span class="dt">Doc_upper  =</span> <span class="kw">filter</span>(sel_grads_blup, standardization ==<span class="st"> &quot;SD&quot;</span> &amp;
+<span class="st">   </span>variable ==<span class="st"> &quot;Docility&quot;</span>)$upper,
+  <span class="dt">Doc_lower  =</span> <span class="kw">filter</span>(sel_grads_blup, standardization ==<span class="st"> &quot;SD&quot;</span> &amp;
+<span class="st">   </span>variable ==<span class="st"> &quot;Docility&quot;</span>)$lower
+)
+
+cor.behav &lt;-<span class="st"> </span>function(x, y){
+  ct &lt;-<span class="st"> </span><span class="kw">cor.test</span>(x, y)
+  out &lt;-<span class="st"> </span><span class="kw">data.frame</span>(<span class="dt">est =</span> ct$estimate, <span class="dt">lower =</span> ct$conf.int[<span class="dv">1</span>],
+    <span class="dt">upper =</span> ct$conf.int[<span class="dv">2</span>], <span class="dt">stringsAsFactors =</span> <span class="ot">FALSE</span>)
+  out &lt;-<span class="st"> </span><span class="kw">round</span>(out, <span class="dt">digits =</span> <span class="dv">2</span>)
+  out$print &lt;-<span class="st"> </span><span class="kw">paste</span>(out$est, <span class="st">&quot; (&quot;</span>, out$lower, <span class="st">&quot;, &quot;</span>, out$upper, <span class="st">&quot;)&quot;</span>, <span class="dt">sep =</span> <span class="st">&quot;&quot;</span>)
+}
+
+cor_blup_agg_act &lt;-<span class="st"> </span><span class="kw">cor.behav</span>(sel_grads_blup_flat$Aggression,
+  sel_grads_blup_flat$Activity)
+cor_blup_agg_doc &lt;-<span class="st"> </span><span class="kw">cor.behav</span>(sel_grads_blup_flat$Aggression,
+  sel_grads_blup_flat$Docility)
+cor_blup_doc_act &lt;-<span class="st"> </span><span class="kw">cor.behav</span>(sel_grads_blup_flat$Docility,
+  sel_grads_blup_flat$Activity)</code></pre>
+<h4 id="aggression-and-activity-1">Aggression and Activity</h4>
+<pre class="sourceCode r"><code class="sourceCode r">p &lt;-<span class="st"> </span><span class="kw">ggplot</span>(<span class="dt">data =</span> sel_grads_blup_flat, <span class="kw">aes</span>(<span class="dt">x =</span> Activity, <span class="dt">y =</span> Aggression))
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">geom_point</span>()
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">ylab</span>(<span class="st">&quot;Aggression&quot;</span>)
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">xlab</span>(<span class="st">&quot;Activity&quot;</span>)
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">theme_bw</span>(<span class="dt">base_size =</span> <span class="dv">10</span>)
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">theme</span>(<span class="dt">panel.grid.major =</span> <span class="kw">element_blank</span>(),
+  <span class="dt">panel.grid.minor =</span> <span class="kw">element_blank</span>(), <span class="dt">panel.background =</span> <span class="kw">element_blank</span>(),
+  <span class="dt">strip.background =</span> <span class="kw">element_blank</span>(), <span class="dt">strip.text =</span> <span class="kw">element_blank</span>(),
+  <span class="dt">panel.border =</span> <span class="kw">element_rect</span>(<span class="dt">linetype =</span> <span class="st">&quot;solid&quot;</span>, <span class="dt">colour =</span> <span class="st">&quot;black&quot;</span>))
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">geom_errorbarh</span>(<span class="kw">aes</span>(<span class="dt">xmin =</span> Act_lower, <span class="dt">xmax =</span> Act_upper),
+  <span class="dt">height =</span> <span class="fl">0.07</span>, <span class="dt">size =</span> <span class="fl">0.2</span>)
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">geom_errorbar</span>(<span class="kw">aes</span>(<span class="dt">ymin =</span> Agg_lower, <span class="dt">ymax =</span> Agg_upper),
+  <span class="dt">width =</span> <span class="fl">0.07</span>, <span class="dt">size =</span> <span class="fl">0.2</span>)
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">annotate</span>(<span class="dt">geom =</span> <span class="st">&quot;text&quot;</span>, <span class="dt">size =</span> <span class="fl">2.5</span>, <span class="dt">x =</span> <span class="fl">0.1</span>, <span class="dt">y =</span> <span class="fl">1.7</span>,
+  <span class="dt">label =</span> <span class="kw">paste</span>(<span class="st">&quot;r = &quot;</span>, cor_blup_agg_act, <span class="dt">sep =</span> <span class="st">&#39;&#39;</span>))
+p +<span class="st"> </span><span class="kw">theme</span>(<span class="dt">plot.margin =</span> <span class="kw">unit</span>(<span class="kw">c</span>(<span class="fl">0.1</span>, <span class="fl">0.1</span>, <span class="fl">0.1</span>, <span class="fl">0.1</span>), <span class="st">&quot;cm&quot;</span>))</code></pre>
+<div class="figure">
+<img src="figure/04_agg_act_blup.png" />
+</div>
+<h4 id="aggression-and-docility-1">Aggression and Docility</h4>
+<pre class="sourceCode r"><code class="sourceCode r">p &lt;-<span class="st"> </span><span class="kw">ggplot</span>(<span class="dt">data =</span> sel_grads_blup_flat, <span class="kw">aes</span>(<span class="dt">y =</span> Aggression, <span class="dt">x =</span> Docility))
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">geom_point</span>()
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">ylab</span>(<span class="st">&quot;Aggression&quot;</span>)
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">xlab</span>(<span class="st">&quot;Docility&quot;</span>)
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">theme_bw</span>(<span class="dt">base_size =</span> <span class="dv">10</span>)
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">theme</span>(<span class="dt">panel.grid.major =</span> <span class="kw">element_blank</span>(),
+  <span class="dt">panel.grid.minor =</span> <span class="kw">element_blank</span>(), <span class="dt">panel.background =</span> <span class="kw">element_blank</span>(),
+  <span class="dt">strip.background =</span> <span class="kw">element_blank</span>(), <span class="dt">strip.text =</span> <span class="kw">element_blank</span>(),
+  <span class="dt">panel.border =</span> <span class="kw">element_rect</span>(<span class="dt">linetype =</span> <span class="st">&quot;solid&quot;</span>, <span class="dt">colour =</span> <span class="st">&quot;black&quot;</span>))
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">geom_errorbarh</span>(<span class="kw">aes</span>(<span class="dt">xmin =</span> Doc_lower, <span class="dt">xmax =</span> Doc_upper),
+  <span class="dt">height =</span> <span class="fl">0.07</span>, <span class="dt">size =</span> <span class="fl">0.2</span>)
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">geom_errorbar</span>(<span class="kw">aes</span>(<span class="dt">ymin =</span> Agg_lower, <span class="dt">ymax =</span> Agg_upper),
+  <span class="dt">width =</span> <span class="fl">0.03</span>, <span class="dt">size =</span> <span class="fl">0.2</span>)
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">annotate</span>(<span class="dt">geom =</span> <span class="st">&quot;text&quot;</span>, <span class="dt">size =</span> <span class="fl">2.5</span>, <span class="dt">x =</span> -<span class="fl">0.1</span>, <span class="dt">y =</span> <span class="fl">1.7</span>,
+  <span class="dt">label =</span> <span class="kw">paste</span>(<span class="st">&quot;r = &quot;</span>, cor_blup_agg_doc, <span class="dt">sep =</span> <span class="st">&#39;&#39;</span>))
+p +<span class="st"> </span><span class="kw">theme</span>(<span class="dt">plot.margin =</span> <span class="kw">unit</span>(<span class="kw">c</span>(<span class="fl">0.1</span>, <span class="fl">0.1</span>, <span class="fl">0.1</span>, <span class="fl">0.1</span>), <span class="st">&quot;cm&quot;</span>))</code></pre>
+<div class="figure">
+<img src="figure/04_agg_doc_blup.png" />
+</div>
+<h4 id="activity-and-docility-1">Activity and Docility</h4>
+<pre class="sourceCode r"><code class="sourceCode r">p &lt;-<span class="st"> </span><span class="kw">ggplot</span>(<span class="dt">data =</span> sel_grads_blup_flat, <span class="kw">aes</span>(<span class="dt">x =</span> Activity, <span class="dt">y =</span> Docility))
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">geom_point</span>()
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">xlab</span>(<span class="st">&quot;Activity&quot;</span>)
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">ylab</span>(<span class="st">&quot;Docility&quot;</span>)
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">theme_bw</span>(<span class="dt">base_size =</span> <span class="dv">10</span>)
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">theme</span>(<span class="dt">panel.grid.major =</span> <span class="kw">element_blank</span>(),
+  <span class="dt">panel.grid.minor =</span> <span class="kw">element_blank</span>(), <span class="dt">panel.background =</span> <span class="kw">element_blank</span>(),
+  <span class="dt">strip.background =</span> <span class="kw">element_blank</span>(), <span class="dt">strip.text =</span> <span class="kw">element_blank</span>(),
+  <span class="dt">panel.border =</span> <span class="kw">element_rect</span>(<span class="dt">linetype =</span> <span class="st">&quot;solid&quot;</span>, <span class="dt">colour =</span> <span class="st">&quot;black&quot;</span>))
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">geom_errorbar</span>(<span class="kw">aes</span>(<span class="dt">ymin =</span> Doc_lower, <span class="dt">ymax =</span> Doc_upper),
+  <span class="dt">width =</span> <span class="fl">0.07</span>, <span class="dt">size =</span> <span class="fl">0.2</span>)
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">geom_errorbarh</span>(<span class="kw">aes</span>(<span class="dt">xmin =</span> Act_lower, <span class="dt">xmax =</span> Act_upper),
+  <span class="dt">height =</span> <span class="fl">0.03</span>, <span class="dt">size =</span> <span class="fl">0.2</span>)
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">annotate</span>(<span class="dt">geom =</span> <span class="st">&quot;text&quot;</span>, <span class="dt">size =</span> <span class="fl">2.5</span>, <span class="dt">x =</span> <span class="dv">0</span>, <span class="dt">y =</span> <span class="fl">1.2</span>,
+  <span class="dt">label =</span> <span class="kw">paste</span>(<span class="st">&quot;r = &quot;</span>, cor_blup_doc_act, <span class="dt">sep =</span> <span class="st">&#39;&#39;</span>))
+p +<span class="st"> </span><span class="kw">theme</span>(<span class="dt">plot.margin =</span> <span class="kw">unit</span>(<span class="kw">c</span>(<span class="fl">0.1</span>, <span class="fl">0.1</span>, <span class="fl">0.1</span>, <span class="fl">0.1</span>), <span class="st">&quot;cm&quot;</span>))</code></pre>
+<div class="figure">
+<img src="figure/04_act_doc_blup.png" />
+</div>
+<h3 id="summary-statistics">Summary Statistics</h3>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">library</span>(dplyr)
+sign_change &lt;-<span class="st"> </span>function(x){
+  <span class="co"># sign changes calculated as the number of changes in direction between </span>
+  <span class="co"># successive years relative to n−1</span>
+  s &lt;-<span class="st"> </span><span class="kw">sign</span>(x)
+  <span class="kw">sum</span>(s[<span class="dv">1</span>:(<span class="kw">length</span>(s)-<span class="dv">1</span>)] !=<span class="st"> </span>s[-<span class="dv">1</span>])/(<span class="kw">length</span>(s)-<span class="dv">1</span>)
+}
+se &lt;-<span class="st"> </span>function(lower, upper){
+  (upper -<span class="st"> </span>lower) /<span class="st"> </span><span class="fl">3.92</span>
+}
+
+sum_stats_blup &lt;-<span class="st"> </span>sel_grads_blup %&gt;%
+<span class="kw">filter</span>(standardization ==<span class="st"> &quot;SD&quot;</span>) %&gt;%
+<span class="kw">group_by</span>(variable, <span class="dt">add =</span> <span class="ot">FALSE</span>) %&gt;%
+<span class="kw">summarise</span>(
+  <span class="dt">mean_abs_b =</span> <span class="kw">mean</span>(<span class="kw">abs</span>(coefficients)),
+  <span class="dt">abs_mean_b =</span> <span class="kw">abs</span>(<span class="kw">mean</span>(coefficients)),
+  <span class="dt">sd_b =</span> <span class="kw">sd</span>(coefficients),
+  <span class="dt">mean_se_b =</span> <span class="kw">mean</span>(<span class="kw">se</span>(lower, upper)),
+  <span class="dt">freq_sign =</span> <span class="kw">sign_change</span>(coefficients),
+  <span class="dt">mean_cv =</span> <span class="kw">mean</span>(<span class="kw">se</span>(lower, upper) /<span class="st"> </span><span class="kw">abs</span>(coefficients))
+  )
+sum_stats_blup[ ,<span class="dv">2</span>:<span class="dv">6</span>] &lt;-<span class="st"> </span><span class="kw">round</span>(sum_stats_blup[ ,<span class="dv">2</span>:<span class="dv">6</span>], <span class="dv">2</span>)
+<span class="kw">pandoc.table</span>(sum_stats_blup)</code></pre>
+<table>
+<caption>Table continues below</caption>
+<col width="15%" />
+<col width="18%" />
+<col width="18%" />
+<col width="9%" />
+<col width="15%" />
+<thead>
+<tr class="header">
+<th align="right">variable</th>
+<th align="right">mean_abs_b</th>
+<th align="right">abs_mean_b</th>
+<th align="right">sd_b</th>
+<th align="right">mean_se_b</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="right">Activity</td>
+<td align="right">0.45</td>
+<td align="right">0.03</td>
+<td align="right">0.58</td>
+<td align="right">0.36</td>
+</tr>
+<tr class="even">
+<td align="right">Aggression</td>
+<td align="right">0.41</td>
+<td align="right">0.09</td>
+<td align="right">0.52</td>
+<td align="right">0.3</td>
+</tr>
+<tr class="odd">
+<td align="right">Docility</td>
+<td align="right">0.28</td>
+<td align="right">0.16</td>
+<td align="right">0.3</td>
+<td align="right">0.28</td>
+</tr>
+</tbody>
+</table>
+<table>
+<col width="16%" />
+<col width="12%" />
+<thead>
+<tr class="header">
+<th align="right">freq_sign</th>
+<th align="right">mean_cv</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="right">0.57</td>
+<td align="right">1.138</td>
+</tr>
+<tr class="even">
+<td align="right">0.57</td>
+<td align="right">2.701</td>
+</tr>
+<tr class="odd">
+<td align="right">0.57</td>
+<td align="right">1.912</td>
+</tr>
+</tbody>
+</table>
+<h2 id="compare-analytical-frameworks">Compare Analytical Frameworks</h2>
+<h3 id="table">Table</h3>
+<pre class="sourceCode r"><code class="sourceCode r"><span class="kw">load</span>(<span class="st">&quot;data/analyses_data/sel_grads_blup.RData&quot;</span>)
+<span class="kw">load</span>(<span class="st">&quot;data/analyses_data/sel_grads_mcmc.RData&quot;</span>)
+
+sg_blups &lt;-<span class="st"> </span>sel_grads_blup %&gt;%<span class="st"> </span><span class="kw">filter</span>(standardization ==<span class="st"> &quot;SD&quot;</span>)
+sg_mcmc &lt;-<span class="st"> </span>sel_grads_mcmc %&gt;%<span class="st"> </span><span class="kw">filter</span>(standardization ==<span class="st"> &quot;SD&quot;</span>)
+
+compare_grads &lt;-<span class="st"> </span><span class="kw">left_join</span>(<span class="kw">select</span>(sg_blups, Year, variable,
+  <span class="dt">blup_coef =</span> coefficients, <span class="dt">blup_upper =</span> upper, <span class="dt">blup_lower =</span> lower),
+  <span class="kw">select</span>(sg_mcmc, Year, variable, <span class="dt">mcmc_pm =</span> post_mode,
+    <span class="dt">mcmc_upper =</span> upper, <span class="dt">mcmc_lower =</span> lower), <span class="dt">by =</span> <span class="kw">c</span>(<span class="st">&quot;variable&quot;</span>, <span class="st">&quot;Year&quot;</span>))
+
+ct_print &lt;-<span class="st"> </span>function(x,y){
+  ct &lt;-<span class="st"> </span><span class="kw">cor.test</span>(x,y)
+  est &lt;-<span class="st"> </span><span class="kw">format</span>(ct$estimate, <span class="dt">digits =</span> <span class="dv">2</span>)
+  ci &lt;-<span class="st"> </span><span class="kw">format</span>(ct$conf.int, <span class="dt">digits =</span> <span class="dv">2</span>)
+  ct &lt;-<span class="st"> </span><span class="kw">format</span>(ct, <span class="dt">digits =</span> <span class="dv">2</span>)
+  <span class="kw">paste</span>(est, <span class="st">&quot; (&quot;</span>, ci[<span class="dv">1</span>], <span class="st">&quot;, &quot;</span>, ci[<span class="dv">2</span>] ,<span class="st">&quot;)&quot;</span>, <span class="dt">sep =</span> <span class="st">&#39;&#39;</span>)  
+}
+
+c_table &lt;-<span class="st"> </span>compare_grads %&gt;%
+<span class="st">  </span><span class="kw">group_by</span>(variable) %&gt;%
+<span class="st">  </span><span class="kw">summarise</span>(<span class="dt">cor =</span> <span class="kw">cor</span>(blup_coef, mcmc_pm),
+    <span class="dt">abs_diff =</span> <span class="kw">mean</span>((<span class="kw">abs</span>(blup_coef -<span class="st"> </span>mcmc_pm))),
+    <span class="dt">mean_mcmc =</span> <span class="kw">mean</span>(<span class="kw">abs</span>(mcmc_pm)), <span class="dt">mean_blup =</span> <span class="kw">mean</span>(<span class="kw">abs</span>(blup_coef)),
+    <span class="dt">prop_diff =</span> mean_blup /<span class="st"> </span>mean_mcmc, <span class="dt">cor_test =</span> <span class="kw">ct_print</span>(blup_coef, mcmc_pm),
+    <span class="dt">lmerGreater =</span> <span class="kw">sum</span>(<span class="kw">abs</span>(blup_coef) &gt;<span class="st"> </span><span class="kw">abs</span>(mcmc_pm))
+  )
+<span class="kw">pandoc.table</span>(c_table)</code></pre>
+<table>
+<caption>Table continues below</caption>
+<col width="15%" />
+<col width="9%" />
+<col width="15%" />
+<col width="16%" />
+<col width="16%" />
+<thead>
+<tr class="header">
+<th align="center">variable</th>
+<th align="center">cor</th>
+<th align="center">abs_diff</th>
+<th align="center">mean_mcmc</th>
+<th align="center">mean_blup</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="center">Activity</td>
+<td align="center">0.8931</td>
+<td align="center">0.2345</td>
+<td align="center">0.2374</td>
+<td align="center">0.4527</td>
+</tr>
+<tr class="even">
+<td align="center">Aggression</td>
+<td align="center">0.9599</td>
+<td align="center">0.2312</td>
+<td align="center">0.1904</td>
+<td align="center">0.4096</td>
+</tr>
+<tr class="odd">
+<td align="center">Docility</td>
+<td align="center">0.9489</td>
+<td align="center">0.08657</td>
+<td align="center">0.1957</td>
+<td align="center">0.2766</td>
+</tr>
+</tbody>
+</table>
+<table>
+<col width="16%" />
+<col width="25%" />
+<col width="18%" />
+<thead>
+<tr class="header">
+<th align="center">prop_diff</th>
+<th align="center">cor_test</th>
+<th align="center">lmerGreater</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="center">1.907</td>
+<td align="center">0.89 (0.51, 0.98)</td>
+<td align="center">8</td>
+</tr>
+<tr class="even">
+<td align="center">2.152</td>
+<td align="center">0.96 (0.79, 0.99)</td>
+<td align="center">7</td>
+</tr>
+<tr class="odd">
+<td align="center">1.413</td>
+<td align="center">0.95 (0.74, 0.99)</td>
+<td align="center">7</td>
+</tr>
+</tbody>
+</table>
+<h3 id="aggression-plot">Aggression plot</h3>
+<pre class="sourceCode r"><code class="sourceCode r">p &lt;-<span class="st"> </span><span class="kw">ggplot</span>(<span class="kw">filter</span>(compare_grads, variable ==<span class="st"> &quot;Aggression&quot;</span>),
+  <span class="kw">aes</span>(<span class="dt">x =</span> blup_coef, <span class="dt">y =</span> mcmc_pm))
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">geom_point</span>()
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">geom_errorbarh</span>(<span class="kw">aes</span>(<span class="dt">xmin =</span> blup_lower, <span class="dt">xmax =</span> blup_upper),
+  <span class="dt">height =</span> <span class="fl">0.04</span>, <span class="dt">size =</span> <span class="fl">0.2</span>)
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">geom_errorbar</span>(<span class="kw">aes</span>(<span class="dt">ymin =</span> mcmc_lower, <span class="dt">ymax =</span> mcmc_upper),
+  <span class="dt">width =</span> <span class="fl">0.07</span>, <span class="dt">size =</span> <span class="fl">0.2</span>)
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">theme_bw</span>(<span class="dt">base_size =</span> <span class="dv">10</span>)
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">theme</span>(<span class="dt">plot.title =</span> <span class="kw">element_text</span>(<span class="dt">size =</span> <span class="dv">10</span>),
+  <span class="dt">panel.grid.major =</span> <span class="kw">element_blank</span>(), <span class="dt">panel.grid.minor =</span> <span class="kw">element_blank</span>(),
+  <span class="dt">panel.background =</span> <span class="kw">element_blank</span>(), <span class="dt">strip.background =</span> <span class="kw">element_blank</span>(),
+  <span class="dt">strip.text =</span> <span class="kw">element_blank</span>(),
+  <span class="dt">panel.border =</span> <span class="kw">element_rect</span>(<span class="dt">linetype =</span> <span class="st">&quot;solid&quot;</span>, <span class="dt">colour =</span> <span class="st">&quot;black&quot;</span>))
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">annotate</span>(<span class="dt">geom =</span> <span class="st">&quot;text&quot;</span>, <span class="dt">size =</span> <span class="fl">2.5</span>, <span class="dt">x =</span> <span class="fl">0.1</span>, <span class="dt">y =</span> <span class="fl">1.1</span>,
+  <span class="dt">label =</span> <span class="kw">paste</span>(<span class="st">&quot;r = &quot;</span>, <span class="kw">filter</span>(c_table, variable ==<span class="st"> &quot;Aggression&quot;</span>) %&gt;%
+<span class="st">  </span><span class="kw">select</span>(cor_test), <span class="dt">sep =</span> <span class="st">&#39;&#39;</span>))
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">ylab</span>(<span class="st">&quot;Posterior Modes&quot;</span>)
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">xlab</span>(<span class="st">&quot;Selection Gradients&quot;</span>)
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">ggtitle</span>(<span class="st">&quot;Aggression&quot;</span>)
+p +<span class="st"> </span><span class="kw">theme</span>(<span class="dt">plot.margin =</span> <span class="kw">unit</span>(<span class="kw">c</span>(<span class="fl">0.1</span>, <span class="fl">0.1</span>, <span class="fl">0.1</span>, <span class="fl">0.1</span>), <span class="st">&quot;cm&quot;</span>))</code></pre>
+<div class="figure">
+<img src="figure/04_compare_agg.png" />
+</div>
+<h3 id="activity-plot">Activity Plot</h3>
+<pre class="sourceCode r"><code class="sourceCode r">p &lt;-<span class="st"> </span><span class="kw">ggplot</span>(<span class="kw">filter</span>(compare_grads, variable ==<span class="st"> &quot;Activity&quot;</span>),
+  <span class="kw">aes</span>(<span class="dt">x =</span> blup_coef, <span class="dt">y =</span> mcmc_pm))
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">geom_point</span>()
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">geom_errorbarh</span>(<span class="kw">aes</span>(<span class="dt">xmin =</span> blup_lower, <span class="dt">xmax =</span> blup_upper),
+  <span class="dt">height =</span> <span class="fl">0.04</span>, <span class="dt">size =</span> <span class="fl">0.2</span>)
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">geom_errorbar</span>(<span class="kw">aes</span>(<span class="dt">ymin =</span> mcmc_lower, <span class="dt">ymax =</span> mcmc_upper),
+  <span class="dt">width =</span> <span class="fl">0.07</span>, <span class="dt">size =</span> <span class="fl">0.2</span>)
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">theme_bw</span>(<span class="dt">base_size =</span> <span class="dv">10</span>)
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">theme</span>(<span class="dt">plot.title =</span> <span class="kw">element_text</span>(<span class="dt">size =</span> <span class="dv">10</span>),
+  <span class="dt">panel.grid.major =</span> <span class="kw">element_blank</span>(), <span class="dt">panel.grid.minor =</span> <span class="kw">element_blank</span>(),
+  <span class="dt">panel.background =</span> <span class="kw">element_blank</span>(), <span class="dt">strip.background =</span> <span class="kw">element_blank</span>(),
+  <span class="dt">strip.text =</span> <span class="kw">element_blank</span>(),
+  <span class="dt">panel.border =</span> <span class="kw">element_rect</span>(<span class="dt">linetype =</span> <span class="st">&quot;solid&quot;</span>, <span class="dt">colour =</span> <span class="st">&quot;black&quot;</span>))
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">annotate</span>(<span class="dt">geom =</span> <span class="st">&quot;text&quot;</span>, <span class="dt">size =</span> <span class="fl">2.5</span>, <span class="dt">x =</span> <span class="dv">0</span>, <span class="dt">y =</span> <span class="fl">1.5</span>,
+  <span class="dt">label =</span> <span class="kw">paste</span>(<span class="st">&quot;r = &quot;</span>, <span class="kw">filter</span>(c_table, variable ==<span class="st"> &quot;Activity&quot;</span>) %&gt;%
+<span class="st">  </span><span class="kw">select</span>(cor_test), <span class="dt">sep =</span> <span class="st">&#39;&#39;</span>))
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">ylab</span>(<span class="st">&quot;Posterior Modes&quot;</span>)
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">xlab</span>(<span class="st">&quot;Selection Gradients&quot;</span>)
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">ggtitle</span>(<span class="st">&quot;Activity&quot;</span>)
+p +<span class="st"> </span><span class="kw">theme</span>(<span class="dt">plot.margin =</span> <span class="kw">unit</span>(<span class="kw">c</span>(<span class="fl">0.1</span>, <span class="fl">0.1</span>, <span class="fl">0.1</span>, <span class="fl">0.1</span>), <span class="st">&quot;cm&quot;</span>))</code></pre>
+<div class="figure">
+<img src="figure/04_compare_act.png" />
+</div>
+<h3 id="docility-plot">Docility Plot</h3>
+<pre class="sourceCode r"><code class="sourceCode r">p &lt;-<span class="st"> </span><span class="kw">ggplot</span>(<span class="kw">filter</span>(compare_grads, variable ==<span class="st"> &quot;Docility&quot;</span>),
+  <span class="kw">aes</span>(<span class="dt">x =</span> blup_coef, <span class="dt">y =</span> mcmc_pm))
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">geom_point</span>()
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">geom_errorbarh</span>(<span class="kw">aes</span>(<span class="dt">xmin =</span> blup_lower, <span class="dt">xmax =</span> blup_upper),
+  <span class="dt">height =</span> <span class="fl">0.04</span>, <span class="dt">size =</span> <span class="fl">0.2</span>)
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">geom_errorbar</span>(<span class="kw">aes</span>(<span class="dt">ymin =</span> mcmc_lower, <span class="dt">ymax =</span> mcmc_upper),
+  <span class="dt">width =</span> <span class="fl">0.07</span>, <span class="dt">size =</span> <span class="fl">0.2</span>)
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">theme_bw</span>(<span class="dt">base_size =</span> <span class="dv">10</span>)
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">theme</span>(<span class="dt">plot.title =</span> <span class="kw">element_text</span>(<span class="dt">size =</span> <span class="dv">10</span>),
+  <span class="dt">panel.grid.major =</span> <span class="kw">element_blank</span>(), <span class="dt">panel.grid.minor =</span> <span class="kw">element_blank</span>(),
+  <span class="dt">panel.background =</span> <span class="kw">element_blank</span>(), <span class="dt">strip.background =</span> <span class="kw">element_blank</span>(),
+  <span class="dt">strip.text =</span> <span class="kw">element_blank</span>(),
+  <span class="dt">panel.border =</span> <span class="kw">element_rect</span>(<span class="dt">linetype =</span> <span class="st">&quot;solid&quot;</span>, <span class="dt">colour =</span> <span class="st">&quot;black&quot;</span>))
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">ylab</span>(<span class="st">&quot;Posterior Modes&quot;</span>)
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">xlab</span>(<span class="st">&quot;Selection Gradients&quot;</span>)
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">annotate</span>(<span class="dt">geom =</span> <span class="st">&quot;text&quot;</span>, <span class="dt">size =</span> <span class="fl">2.5</span>, <span class="dt">x =</span> <span class="dv">0</span>, <span class="dt">y =</span> <span class="fl">0.7</span>,
+  <span class="dt">label =</span> <span class="kw">paste</span>(<span class="st">&quot;r = &quot;</span>, <span class="kw">filter</span>(c_table, variable ==<span class="st"> &quot;Docility&quot;</span>) %&gt;%
+<span class="st">  </span><span class="kw">select</span>(cor_test), <span class="dt">sep =</span> <span class="st">&#39;&#39;</span>))
+p &lt;-<span class="st"> </span>p +<span class="st"> </span><span class="kw">ggtitle</span>(<span class="st">&quot;Docility&quot;</span>)
+p +<span class="st"> </span><span class="kw">theme</span>(<span class="dt">plot.margin =</span> <span class="kw">unit</span>(<span class="kw">c</span>(<span class="fl">0.1</span>, <span class="fl">0.1</span>, <span class="fl">0.1</span>, <span class="fl">0.1</span>), <span class="st">&quot;cm&quot;</span>))</code></pre>
+<div class="figure">
+<img src="figure/04_compare_doc.png" />
+</div>
+</body>
+</html>
