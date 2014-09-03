@@ -2,9 +2,9 @@
 
 [![DOI](https://zenodo.org/badge/5166/rwtaylor/2014-female-selection.png)](http://dx.doi.org/10.5281/zenodo.10908)
 
-Date: July 17, 2014
+Date: September 2, 2014
 
-Included is the code for our manuscript "Fluctuating selection on behaviour in a wild population of red squirrels."
+Included is the code for our manuscript "Selection on female behaviour fluctuates with offspring environment."
 
 Please email Ryan Taylor (ryan@ryantaylor.net) if you have any questions or comments.
 
