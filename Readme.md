@@ -9,7 +9,7 @@ Included is the code for our manuscript "Fluctuating selection on behaviour in a
 Please email Ryan Taylor (ryan@ryantaylor.net) if you have any questions or comments.
 
 ## How to run this code?
-The analysis is split into 6 sections as seprate knitr markdown files. [Knitr](http://yihui.name/knitr/) allows R code to be interwoven with [Markdown](http://daringfireball.net/projects/markdown/) text. All analyses are run in [R](http://cran.r-project.org). The entire analysis takes a few hours to run on a 12 core machine (step 05_competition takes most advantage of parallelization).
+The analysis is split into 6 sections as seprate knitr markdown files. [Knitr](http://yihui.name/knitr/) allows R code to be interwoven with [Markdown](http://daringfireball.net/projects/markdown/) text. All analyses are run in [R](http://cran.r-project.org). The entire analysis takes a few hours to run on a 12 core machine (step 05_competition takes the most advantage of parallelization). Analyses output can be found in the knitted_results directory.
 
   1. Install all necessary R packages by running the rpackages.R file.
      
